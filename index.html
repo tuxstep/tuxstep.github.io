@@ -57,23 +57,64 @@ details > div.detail-body { padding: 4px 14px 8px; }
 
 <p><strong>For existing Linux apps</strong>, <code>pkgwrap</code> turns any apt package into a self-contained <code>.app</code> bundle deployable to <code>/Local/Applications/</code>, <code>/Network/Applications/</code>, or <code>~/Applications/</code> — Linux ecosystem available on demand, none of it polluting <code>/System</code>.</p>
 
-<p><strong>The filesystem follows NeXT's four-domain model</strong> — <code>/System</code>, <code>/Network</code>, <code>/Local</code>, plus per-user homes under <code>/Local/Users/&lt;name&gt;</code> or <code>/Network/Users/&lt;name&gt;</code> (for NFS-mounted users that follow you across machines). Cocoa APIs walk the domains automatically. Deployment is drag-and-drop: copy <code>/System</code> to a volume, the volume becomes bootable.</p>
+<p><strong>The filesystem follows NeXT's four-domain model.</strong> Cocoa APIs walk the domains automatically in this order:</p>
 
-<p><strong>Tux</strong> (Linux kernel) + <strong>STEP</strong> (NeXTSTEP heritage). v3.3 generated 2026-04-26. The architectural source of truth for the project lives at <a href="https://github.com/tuxstep/tuxstep/blob/main/PLAN.md"><code>tuxstep/tuxstep/PLAN.md</code></a>.</p>
+<div style="background: #f8f9fa; border: 1px solid #e1e4e8; border-radius: 6px; padding: 18px; margin: 1em 0; overflow-x: auto;">
+<svg viewBox="0 0 720 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="NeXT four-domain filesystem model" style="width: 100%; max-width: 720px; height: auto; display: block; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, sans-serif;">
 
-<nav class="toc">
-<h2>Contents</h2>
-<ol>
-  <li><a href="#identity">Identity</a></li>
-  <li><a href="#architecture">Architecture</a></li>
-  <li><a href="#filesystem">Filesystem layout</a></li>
-  <li><a href="#boot">Boot chain</a></li>
-</ol>
-</nav>
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <text x="10" y="18" font-size="11" fill="#475569" font-style="italic">Cocoa lookup order</text>
+  <line x1="135" y1="14" x2="700" y2="14" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- User -->
+  <g>
+    <rect x="10" y="40" width="160" height="160" fill="#fce7f3" stroke="#be185d" stroke-width="1.5" rx="6"/>
+    <text x="90" y="78" text-anchor="middle" font-size="18" font-weight="700" fill="#831843">User</text>
+    <text x="90" y="106" text-anchor="middle" font-size="12" font-family="ui-monospace, SF Mono, Menlo, monospace" fill="#831843">~/</text>
+    <text x="90" y="142" text-anchor="middle" font-size="11" fill="#475569">your prefs,</text>
+    <text x="90" y="158" text-anchor="middle" font-size="11" fill="#475569">apps, fonts</text>
+  </g>
+
+  <!-- Local -->
+  <g>
+    <rect x="190" y="40" width="160" height="160" fill="#fef3c7" stroke="#b45309" stroke-width="1.5" rx="6"/>
+    <text x="270" y="78" text-anchor="middle" font-size="18" font-weight="700" fill="#78350f">Local</text>
+    <text x="270" y="106" text-anchor="middle" font-size="12" font-family="ui-monospace, SF Mono, Menlo, monospace" fill="#78350f">/Local/</text>
+    <text x="270" y="142" text-anchor="middle" font-size="11" fill="#475569">per-machine apps,</text>
+    <text x="270" y="158" text-anchor="middle" font-size="11" fill="#475569">sysadmin scope</text>
+  </g>
+
+  <!-- Network -->
+  <g>
+    <rect x="370" y="40" width="160" height="160" fill="#dcfce7" stroke="#15803d" stroke-width="1.5" rx="6"/>
+    <text x="450" y="78" text-anchor="middle" font-size="18" font-weight="700" fill="#14532d">Network</text>
+    <text x="450" y="106" text-anchor="middle" font-size="12" font-family="ui-monospace, SF Mono, Menlo, monospace" fill="#14532d">/Network/</text>
+    <text x="450" y="142" text-anchor="middle" font-size="11" fill="#475569">site-wide,</text>
+    <text x="450" y="158" text-anchor="middle" font-size="11" fill="#475569">NFS-backed</text>
+  </g>
+
+  <!-- System -->
+  <g>
+    <rect x="550" y="40" width="160" height="160" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5" rx="6"/>
+    <text x="630" y="78" text-anchor="middle" font-size="18" font-weight="700" fill="#1e3a8a">System</text>
+    <text x="630" y="106" text-anchor="middle" font-size="12" font-family="ui-monospace, SF Mono, Menlo, monospace" fill="#1e3a8a">/System/</text>
+    <text x="630" y="142" text-anchor="middle" font-size="11" fill="#475569">the System,</text>
+    <text x="630" y="158" text-anchor="middle" font-size="11" fill="#475569">drag-and-drop to deploy</text>
+  </g>
+
+</svg>
+</div>
+
+<p>Home directories live under <code>/Local/Users/&lt;name&gt;</code> (local accounts) or <code>/Network/Users/&lt;name&gt;</code> (NFS-mounted accounts that follow you across machines).</p>
 
 <h2 id="identity">Identity</h2>
 
-<p>TuxSTEP is a Linux distribution where the userspace combines the XNU open-source userland with the GNUstep frameworks. The Linux kernel provides hardware support and ecosystem reach. From PID 1 upward, every process is libsystem-linked — a coherent stack assembled around best practices and technical correctness.</p>
+<p>TuxSTEP is a Linux distribution where the userspace combines the XNU open-source userland with the GNUstep frameworks.</p>
 
 <table>
 <tr><th>Layer</th><th>Source</th></tr>
@@ -86,8 +127,6 @@ details > div.detail-body { padding: 4px 14px 8px; }
 </table>
 
 <h2 id="architecture">Architecture</h2>
-
-<p>One coherent stack, ELF-formatted throughout, libsystem-linked end to end.</p>
 
 <div style="background: #f8f9fa; border: 1px solid #e1e4e8; border-radius: 6px; padding: 18px; margin: 1em 0; overflow-x: auto;">
 <svg viewBox="0 0 720 484" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TuxSTEP architecture stack" style="width: 100%; max-width: 720px; height: auto; display: block; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, sans-serif;">
@@ -150,8 +189,6 @@ details > div.detail-body { padding: 4px 14px 8px; }
 
 <h2 id="filesystem">Filesystem layout</h2>
 
-<p>Everything system-internal lives under <code>/System</code>.</p>
-
 <pre><code>/                                       ISO root
 │
 ├── System/                              the entire System
@@ -175,22 +212,6 @@ details > div.detail-body { padding: 4px 14px 8px; }
 ├── Local/                               per-machine sysadmin (empty in v0.1)
 └── Volumes/                             mounted external media
 </code></pre>
-
-<h2 id="boot">Boot chain</h2>
-
-<p>The disk is laid out as two GPT partitions:</p>
-
-<pre><code>Disk:
-├── Partition 1: FAT32 ESP, 5 MB, hidden    (chainloader stub only — never auto-mounted)
-└── Partition 2: ext4, rest of disk
-    └── /System/...                          (entire System)
-</code></pre>
-
-<h3 id="dragdrop">Drag-and-drop deployment</h3>
-
-<p>TuxSTEP's deployment model is classic-Mac: <strong><code>/System</code> is the OS. Drag it to a volume — the copy automatically runs <code>bless</code> on the destination, which installs the bootloader to the ESP and marks the volume bootable.</strong></p>
-
-<p>The chosen architecture — Linux kernel + XNU userland — is the simplest design that satisfies the project's actual goals: to provide a coherent, complete, technically correct system that makes for a world-class developer and end-user experience.</p>
 
 <p style="color:#888; font-size: 0.85em; margin-top:3em;">v3.3 — generated 2026-04-26. Architectural source of truth: <a href="https://github.com/tuxstep/tuxstep/blob/main/PLAN.md"><code>github.com/tuxstep/tuxstep/blob/main/PLAN.md</code></a>.</p>
 
