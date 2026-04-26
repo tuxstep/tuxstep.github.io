@@ -156,7 +156,7 @@ details > div.detail-body { padding: 4px 14px 8px; }
 <tr><th>Component</th><th>Source</th><th>What we do</th></tr>
 <tr><td>Linux kernel</td><td><code>kernel.org</code></td><td>Build with TuxSTEP <code>.config</code> (KMS drivers built-in, devtmpfs, framebuffer console, common storage/networking, ext4/isofs/squashfs)</td></tr>
 <tr><td>Kernel modules / firmware</td><td><code>kernel.org</code> / linux-firmware</td><td>Ship as-is</td></tr>
-<tr><td>Bootloader</td><td>GRUB upstream</td><td>Fork as <code>tuxstep/grub</code>: silent boot default, Mac-style boot keys (cmd-V, cmd-S, option, etc.), TuxSTEP-styled boot screen. Per-arch builds (grub-pc, grub-efi-ia32, grub-efi-amd64, grub-efi-arm64).</td></tr>
+<tr><td>Bootloader</td><td>GRUB upstream</td><td>Fork as <code>tuxstep/grub</code>: silent boot default, familiar boot keys (cmd-V, cmd-S, option, etc.), TuxSTEP-styled boot screen. Per-arch builds (grub-pc, grub-efi-ia32, grub-efi-amd64, grub-efi-arm64).</td></tr>
 <tr><td>libsystem (libc, pthread, platform, malloc, dispatch, closure)</td><td><code>apple-oss-distributions/{Libc, libplatform, libpthread, libmalloc, libclosure, libdispatch}</code></td><td>Vendor as submodules; build as ELF via parallel <code>linux-glue/</code> layer; output <code>libSystem.so</code></td></tr>
 <tr><td>Init system / service supervisor</td><td><code>apple-oss-distributions/launchd</code></td><td>Port to libsystem; runs as PID 1; reads service plists from <code>/System/Library/LaunchDaemons/</code></td></tr>
 <tr><td>Mach IPC</td><td><code>tuxstep/darlingserver</code></td><td>Userspace Mach port broker; <code>libsimple_darlingserver</code> is the ELF client library used by launchd, <code>NSXPCConnection</code>, and any other Mach-port-using process</td></tr>
