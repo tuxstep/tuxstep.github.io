@@ -270,8 +270,6 @@ $                                     # disk is now bootable
 │       └── lib/                  bundled glibc + dependency closure
 </code></pre>
 
-<p><code>pkgwrap --from-apt firefox-esr -o Firefox.app</code> pulls the package from any apt repo, resolves its full transitive dep tree, and emits the bundle. Also supports <code>.deb</code>, AppImage, Flatpak, and static binaries as input.</p>
-
 <p>The Debian/Ubuntu ecosystem becomes available on demand, fully isolated under <code>/Local/Applications/</code>. Bundles install/remove via drag-and-drop. No package-manager conflicts.</p>
 
 <h2 id="demo">v0.1 demo</h2>
