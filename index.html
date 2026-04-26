@@ -68,7 +68,6 @@ details > div.detail-body { padding: 4px 14px 8px; }
   <li><a href="#architecture">Architecture</a></li>
   <li><a href="#filesystem">Filesystem layout</a></li>
   <li><a href="#boot">Boot chain</a></li>
-  <li><a href="#components">Component map</a></li>
 </ol>
 </nav>
 
@@ -190,25 +189,6 @@ details > div.detail-body { padding: 4px 14px 8px; }
 <h3 id="dragdrop">Drag-and-drop deployment</h3>
 
 <p>TuxSTEP's deployment model is classic-Mac: <strong><code>/System</code> is the OS. Drag it to a volume — the copy automatically runs <code>bless</code> on the destination, which installs the bootloader to the ESP and marks the volume bootable.</strong></p>
-
-<h2 id="components">Component map</h2>
-
-<p>Every component traces back to a single upstream source. TuxSTEP's job is the integration.</p>
-
-<table>
-<tr><th>Component</th><th>Source</th><th>What we do</th></tr>
-<tr><td>Linux kernel</td><td><code>kernel.org</code></td><td>Build with TuxSTEP <code>.config</code> (KMS drivers built-in, devtmpfs, framebuffer console, common storage/networking, ext4/isofs/squashfs)</td></tr>
-<tr><td>Kernel modules / firmware</td><td><code>kernel.org</code> / linux-firmware</td><td>Ship as-is</td></tr>
-<tr><td>Bootloader</td><td>GRUB upstream</td><td>Fork as <code>tuxstep/grub</code>: silent boot default, familiar boot keys (cmd-V, cmd-S, option, etc.), TuxSTEP-styled boot screen. Per-arch builds (grub-pc, grub-efi-ia32, grub-efi-amd64, grub-efi-arm64).</td></tr>
-<tr><td>libsystem (libc, pthread, platform, malloc, dispatch, closure)</td><td><code>apple-oss-distributions/{Libc, libplatform, libpthread, libmalloc, libclosure, libdispatch}</code></td><td>Vendor as submodules; build as ELF via parallel <code>linux-glue/</code> layer; output <code>libSystem.so</code></td></tr>
-<tr><td>Init system / service supervisor</td><td><code>apple-oss-distributions/launchd</code></td><td>Port to libsystem; runs as PID 1; reads service plists from <code>/System/Library/LaunchDaemons/</code></td></tr>
-<tr><td>Mach IPC</td><td><code>tuxstep/darlingserver</code></td><td>Userspace Mach port broker; <code>libsimple_darlingserver</code> is the ELF client library used by launchd, <code>NSXPCConnection</code>, and any other Mach-port-using process</td></tr>
-<tr><td>Apple BSD coreutils + zsh</td><td><code>apple-oss-distributions/{file_cmds, shell_cmds, system_cmds, network_cmds, text_cmds, zsh}</code></td><td>Port to compile against libsystem; install at <code>/System/Library/Tools/</code></td></tr>
-<tr><td>clang / lld / LLVM tools</td><td><code>llvm-project</code></td><td>Cross-build against libsystem; install at <code>/System/Library/Tools/{cc, ld, ar, ...}</code></td></tr>
-<tr><td>Apple system headers</td><td>apple-oss-distributions xnu, Libc, etc.</td><td>Install at <code>/System/Library/Headers/</code></td></tr>
-<tr><td>Obj-C runtime + Cocoa frameworks</td><td>GNUstep / Gershwin</td><td><code>libobjc2</code>, <code>libdispatch</code>, <code>tools-make</code>, <code>libs-base</code>, <code>libs-corebase</code>, <code>libs-gui</code>, <code>libs-back</code>, <code>libs-opal</code>, <code>libs-quartzcore</code> — patch + rebuild against libsystem; install at <code>/System/Library/Libraries/</code> and <code>/System/Library/Makefiles/</code></td></tr>
-<tr><td>Workspace + system apps</td><td>Gershwin</td><td>Eau, Workspace.app, system applications, login chain</td></tr>
-</table>
 
 <p>The chosen architecture — Linux kernel + XNU userland — is the simplest design that satisfies the project's actual goals: to provide a coherent, complete, technically correct system that makes for a world-class developer and end-user experience.</p>
 
