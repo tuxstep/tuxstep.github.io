@@ -149,22 +149,6 @@ details > div.detail-body { padding: 4px 14px 8px; }
     └── /System/...                          (entire OS)
 </code></pre>
 
-<p>Boot sequence:</p>
-
-<ol>
-  <li><strong>UEFI firmware</strong> reads partition 1 (the hidden ESP) and executes <code>\EFI\BOOT\BOOTX64.EFI</code> (or <code>BOOTAA64.EFI</code> on arm64, <code>BOOTIA32.EFI</code> on UEFI i386). This is a thin <code>tuxstep/grub</code> stub (~1-3 MB) that knows how to read ext4. On legacy BIOS, GRUB stage 1 loads from MBR and stage 1.5 from the BIOS-boot region instead.</li>
-  <li><strong>Stub bootloader</strong> reads its config (which references partition 2 by UUID) and executes <code>/System/Library/Boot/kernel.efi</code>.</li>
-  <li><strong>Linux kernel</strong> (built with <code>CONFIG_EFI_STUB=y</code>, so the kernel image <em>is</em> an EFI binary) boots from there. KMS drivers built into the kernel come up automatically; framebuffer console renders at native resolution.</li>
-  <li><strong>initramfs</strong> mounts the squashfs/ext4 root, mounts the kernel-managed filesystems at their <code>/System/Library/Private</code> locations (devtmpfs, tmpfs for /tmp, etc.), and pivots.</li>
-  <li><strong>PID 1 = <code>/System/Library/Tools/zsh</code></strong> directly. No init system, no service supervisor, no auth chain. The user is at a <code>#</code> prompt as root on TTY1.</li>
-</ol>
-
-<p>The 5 MB FAT32 ESP is <strong>hidden</strong> by partition flags and never appears in <code>ls /</code>, <code>mount</code>, or <code>df</code> output — it's plumbing required by UEFI firmware, not part of the running system. After initial setup, kernel updates only write to <code>/System/Library/Boot/</code> on the ext4 partition; the ESP itself is touched once at install and never again.</p>
-
-<p>The bootloader is <code>tuxstep/grub</code>, a fork of upstream GNU GRUB. We fork to add TuxSTEP-specific UX: silent boot by default, Mac-style boot-key shortcuts (cmd-V for verbose boot, cmd-S for single-user mode, option/alt to pick boot volume, shift for safe boot, <code>C</code> to boot from CD), and a TuxSTEP-styled boot screen. GRUB chosen as the only mainstream bootloader covering BIOS i386/amd64 and UEFI i386/amd64/arm64 from a single codebase.</p>
-
-<p>v0.1 is intentionally minimal. <code>launchd</code>, <code>darlingserver</code>, login chain, getty, hot-plug, Mach IPC, and the GUI stack are all post-v0.1 work. The single-user-shell milestone proves the architecture without committing to subsystems whose design isn't yet locked.</p>
-
 <h3 id="dragdrop">Drag-and-drop deployment</h3>
 
 <p>TuxSTEP's deployment model is classic-Mac: <strong><code>/System</code> is the OS. Drag it to a volume, the volume becomes bootable.</strong></p>
