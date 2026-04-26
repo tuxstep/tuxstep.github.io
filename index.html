@@ -53,7 +53,7 @@ details > div.detail-body { padding: 4px 14px 8px; }
 
 <p>A modern NeXT-inspired operating system. Linux kernel underneath, <strong>a Darwin userland on top</strong>: Apple's libsystem as the system libc, BSD coreutils, and GNUstep frameworks (via Gershwin) for Cocoa-style applications. ELF-formatted, no Mach-O execution.</p>
 
-<p><strong>For macOS applications</strong>, TuxSTEP makes porting easier than any other solution — Apple's libsystem ships the BSD APIs (<code>kqueue</code>, <code>kevent</code>, <code>mach_absolute_time</code>, FSEvents) that glibc lacks, Apple's headers install at <code>/System/Library/Headers/</code>, and GNUstep provides source-compatible Cocoa frameworks. A macOS app typically rebuilds with far fewer patches than anywhere else.</p>
+<p><strong>For macOS applications</strong>, TuxSTEP makes porting easier than any other solution — Apple's libsystem ships the BSD APIs (<code>kqueue</code>, <code>kevent</code>, <code>mach_absolute_time</code>, FSEvents) that glibc lacks, Apple's headers install at <code>/System/Library/Headers/</code>, and GNUstep provides source-compatible Cocoa frameworks.</p>
 
 <p><strong>For existing Linux apps</strong>, <code>pkgwrap</code> turns any apt package into a self-contained <code>.app</code> bundle deployable to <code>/Local/Applications/</code>, <code>/Network/Applications/</code>, or <code>~/Applications/</code> — Linux ecosystem available on demand, none of it polluting <code>/System</code>.</p>
 
