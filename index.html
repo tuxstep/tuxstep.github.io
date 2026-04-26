@@ -69,11 +69,6 @@ details > div.detail-body { padding: 4px 14px 8px; }
   <li><a href="#filesystem">Filesystem layout</a></li>
   <li><a href="#boot">Boot chain</a></li>
   <li><a href="#components">Component map</a></li>
-  <li><a href="#phases">Phase plan to v0.1</a></li>
-  <li><a href="#demo">v0.1 demo</a></li>
-  <li><a href="#sync">Staying synced with Apple</a></li>
-  <li><a href="#deferred">Deferred to post-v0.1</a></li>
-  <li><a href="#why">Why this shape</a></li>
 </ol>
 </nav>
 
@@ -193,112 +188,7 @@ $                                     # disk is now bootable
 <tr><td>Bootloader</td><td>GRUB upstream</td><td>Fork as <code>tuxstep/grub</code>: silent boot default, Mac-style boot keys (cmd-V, cmd-S, option, etc.), TuxSTEP-styled boot screen. Per-arch builds (grub-pc, grub-efi-ia32, grub-efi-amd64, grub-efi-arm64) shipped on every TuxSTEP ISO.</td></tr>
 </table>
 
-<p>Apple-derived source is vendored as git submodules and never edited in place. Each component repository keeps Apple's source as a submodule alongside two parallel directories that <em>are</em> TuxSTEP's own: <code>linux-glue/</code> for kernel-specific code (syscall translation, struct adapters, signal/errno remapping) and <code>patches/</code> for build-time patches that rewrite hardcoded path constants (<code>_PATH_DEVNULL</code> and friends, plus direct path-string literals) so they target <code>/System/Library/Private/...</code>. Syncing is <code>git submodule update --remote</code>; patches are reapplied at the next build.</p>
-
-<h2 id="phases">Phase plan to v0.1</h2>
-
-<p>Roughly 10–13 months of focused work for one person. Each phase is bounded; later phases depend on earlier ones.</p>
-
-<table>
-<tr><th>Phase</th><th>Component</th><th>Estimate</th></tr>
-<tr><td>0</td><td><code>tuxstep/libsystem-linux</code> — Apple libsystem ported to ELF; <code>libSystem.so</code> at <code>/System/Library/Libraries/</code>; hello-world compiles and runs</td><td>4–6 months</td></tr>
-<tr><td>1</td><td>Bootstrap toolchain — clang + lld rebuilt against libsystem; Apple headers at <code>/System/Library/Headers/</code>; self-hosted</td><td>3–4 months</td></tr>
-<tr><td>2</td><td>Apple BSD coreutils + zsh ported to libsystem; installed at <code>/System/Library/Tools/</code></td><td>3–4 months</td></tr>
-<tr><td>3</td><td>Filesystem tooling: <code>mount</code>, <code>umount</code>, <code>fsck.ext4</code> — minimal subset for ISO</td><td>2–3 weeks</td></tr>
-<tr><td>4</td><td>Gershwin stack rebuilt against libsystem (libobjc2, libdispatch, tools-make, libs-base, libs-corebase)</td><td>1–2 months</td></tr>
-<tr><td>5</td><td>Kernel config + initramfs + ISO assembly with chainloader-on-hidden-ESP layout; <code>tuxstep/grub</code> fork; <strong>i386 + amd64 + arm64</strong> ISOs in CI</td><td>1–2 months</td></tr>
-</table>
-
-<p>Phases 0–2 are the long poles. Phases 3–5 fall out quickly once libsystem and the toolchain are stable.</p>
-
-<p>Post-v0.1 phases (informational, not part of v0.1 timeline): Phase 6 ships <code>newfs</code>, <code>bless</code>, and the auto-bless daemon for the drag-and-drop deployment model. Phase 7 ports launchd as PID 1. Phase 8 brings darlingserver back for Mach IPC. Phase 9 rebuilds the GUI stack (libs-gui, libs-back, libs-opal, libs-quartzcore) against libsystem.</p>
-
-<h2 id="demo">v0.1 demo</h2>
-
-<p>The deliverable is <strong>three bootable ISOs</strong> — one each for i386, amd64, and arm64. CI gates green on all three before v0.1 is declared shipping. After GRUB loads the kernel and the squashfs mounts, the user lands at a <code>#</code> prompt at TTY1, no glibc anywhere on the system. From the shell:</p>
-
-<pre><code># uname -a
-Linux tuxstep 6.16.0-tuxstep-amd64 #1 SMP ... x86_64
-
-# ldd /System/Library/Tools/ls
-        /System/Library/Libraries/libSystem.so (0x...)
-
-# ls /
-Local  Network  System  Volumes
-
-# ls /System/Library/Libraries/
-libdispatch.so       libgnustep-base.so       libobjc2.so       libSystem.so
-libgnustep-corebase.so
-
-# cat &gt; /System/Library/Private/tmp/hello.m &lt;&lt;EOF
-#import &lt;Foundation/Foundation.h&gt;
-int main(void) {
-    @autoreleasepool {
-        NSLog(@"Hello from TuxSTEP v0.1");
-    }
-}
-EOF
-
-# /System/Library/Tools/cc -ObjC -lSystem -lobjc2 -ldispatch -lgnustep-base \
-        /System/Library/Private/tmp/hello.m \
-        -o /System/Library/Private/tmp/hello
-# /System/Library/Private/tmp/hello
-2026-XX-XX HH:MM:SS.fff Hello from TuxSTEP v0.1
-</code></pre>
-
-<p>That's the v0.1 milestone. Three bootable ISOs (i386, amd64, arm64), each demonstrating: Linux kernel + Apple libsystem + Apple BSD userland + Gershwin runtime stack + Obj-C compilation, end to end, ELF, no glibc, four real top-level directories with no compat symlinks. <code>ls /</code> shows exactly the system's identity.</p>
-
-<h2 id="sync">Staying synced with Apple</h2>
-
-<p>The architecture is deliberately designed to make tracking Apple's open-source releases inexpensive and predictable.</p>
-
-<ul>
-  <li><strong>Apple source is vendored as submodules and never edited in place.</strong> Submodule working trees can be wiped and re-pulled at any time without losing state.</li>
-  <li><strong>Linux-specific code lives in parallel <code>linux-glue/</code> directories.</strong> Adding kernel-specific behavior never touches Apple source.</li>
-  <li><strong>Path-rewriting patches live in a separate <code>patches/</code> series</strong> applied at build time after <code>git submodule update</code>. They rewrite hardcoded path constants (<code>_PATH_*</code> macros, plus direct <code>"/etc/foo"</code> string literals) to target <code>/System/Library/Private/...</code>. The set is small and stable; Apple seldom changes path constants.</li>
-  <li><strong>Submodules pinned to specific Apple OSS release tags.</strong> Bumping is <code>git submodule update --remote</code>, not a merge.</li>
-  <li><strong>Syscall stubs generated from a table.</strong> Adding a new Apple syscall means adding one line to <code>syscall_table.txt</code>; no new hand-written code.</li>
-  <li><strong>An <code>audit_paths.sh</code> script enumerates direct path literals</strong> in newly-vendored Apple source so the patch series can be extended mechanically.</li>
-  <li><strong>Pin to yearly Apple OSS releases, not tip.</strong> Apple ships tagged source drops with each macOS major; we track those, not the upstream development branches.</li>
-  <li><strong>CI watches upstream.</strong> A weekly build against the latest Apple OSS tag detects breakage early without forcing immediate action.</li>
-</ul>
-
-<p>Estimated ongoing sync work after the initial port: 1–3 days per Apple OSS release. Most bumps require zero changes to the patch series; occasional bumps add 1–3 patches if Apple introduced new hardcoded paths.</p>
-
-<h2 id="deferred">Deferred to post-v0.1</h2>
-
-<p>v0.1 is deliberately small. The following are real and planned, but later:</p>
-
-<ul>
-  <li><strong>launchd as PID 1</strong> (replaces shell-as-PID-1). Multi-user, service supervision, plist-based service definitions.</li>
-  <li><strong>Mach IPC</strong> — <code>libsimple_darlingserver.so</code> as ELF, <code>darlingserver</code> as a system daemon. Enables <code>NSXPCConnection</code>-style IPC and any code path that depends on Mach ports.</li>
-  <li><strong>Login chain</strong> — Apple's <code>login</code>, <code>getty</code>, auth subsystem. Multi-user system with home directories under <code>/Local/Users/&lt;name&gt;</code>.</li>
-  <li><strong>Hot-plug + modular kernel</strong> — <code>tuxstep-uevent</code>, <code>tuxstep-modload</code>; ship more of the kernel as modules; USB devices auto-detect.</li>
-  <li><strong>Networking</strong> — DHCP client, configd, wifi support (wpa_supplicant or alternative).</li>
-  <li><strong>Package management</strong> — port apple-oss <code>pkgutil</code> + <code>installer</code>.</li>
-  <li><strong>Display server / GUI</strong> — libs-gui, libs-back, libs-opal, libs-quartzcore rebuilt against libsystem; X11 client libraries port; eventually Eau as window manager.</li>
-  <li><strong>Workspace, Terminal, demo applications</strong> — the actual NeXT desktop experience.</li>
-</ul>
-
-<p>Each is a separately-scoped follow-on milestone after the v0.1 core base is shipping.</p>
-
-<h2 id="why">Why this shape</h2>
-
-<p>Several plausible alternatives were considered and rejected:</p>
-
-<table>
-<tr><th>Alternative</th><th>Why rejected</th></tr>
-<tr><td>Run unmodified Mach-O binaries (Darling-style)</td><td>Requires maintaining mldr, dyld, binfmt support, and a Mach-O loader stack forever. Buys macOS-binary compatibility, which is not a TuxSTEP goal. The complexity isn't worth it for a project that doesn't ship that use case.</td></tr>
-<tr><td>Use glibc with Apple-OSS components as ELF additions</td><td>Two-libc world long-term creates persistent friction (<code>printf</code> from which libc?). Better to commit to one libc — and Apple's libsystem is more stable, BSD-aware, and aesthetically correct for a NeXT-derived project.</td></tr>
-<tr><td>Use GNUstep's libobjc2 + Apple's libobjc4 in parallel</td><td>Apple's libobjc4 and libobjc2 maintain separate class registries; can't share an Obj-C runtime. Pick one. libobjc2 is modern, arm64-clean, and free of Apple-ABI constraints.</td></tr>
-<tr><td>Substitute Apple's Foundation with GNUstep's at the ABI level</td><td>Mach-O binaries linked against Apple's Foundation expect specific ivar layouts and method dispatch behaviors. GNUstep's Foundation cannot satisfy them at runtime even via shims. This rules out the Mach-O execution path entirely — and confirms the ELF-only direction.</td></tr>
-<tr><td>Build a Darwin personality kernel module to run unmodified libsystem.dylib</td><td>Brings back the Mach-O loader maintenance burden plus a kernel module across kernel versions. Darling tried this (<code>darling-newlkm</code>) and abandoned it. The userspace darlingserver path is simpler if Mach IPC is needed at all.</td></tr>
-<tr><td>Replace glibc with Apple libsystem on a Devuan-derived distribution</td><td>Mixing glibc-linked Devuan packages with libsystem-linked TuxSTEP code in the same process trees is undefined behavior. A clean ISO with no Devuan binaries is the simpler architecture.</td></tr>
-</table>
-
-<p>The chosen architecture — Linux kernel + libsystem ELF userland + GNUstep stack on libsystem — is the simplest design that satisfies the project's actual goals (NeXT-inspired, Apple-flavored, modern, maintainable, arm64-clean) without inheriting compatibility burdens it doesn't need.</p>
-
-<p style="color:#888; font-size: 0.85em; margin-top:3em;">v3.3 — generated 2026-04-26 — trims the project-identity prose to the essentials. Architectural source of truth: <a href="https://github.com/tuxstep/tuxstep/blob/main/PLAN.md"><code>github.com/tuxstep/tuxstep/blob/main/PLAN.md</code></a>.</p>
+<p style="color:#888; font-size: 0.85em; margin-top:3em;">v3.3 — generated 2026-04-26. Architectural source of truth: <a href="https://github.com/tuxstep/tuxstep/blob/main/PLAN.md"><code>github.com/tuxstep/tuxstep/blob/main/PLAN.md</code></a>.</p>
 
 </body>
 </html>
