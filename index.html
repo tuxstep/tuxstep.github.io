@@ -111,12 +111,6 @@ details > div.detail-body { padding: 4px 14px 8px; }
 +-------------------------------------------------------------+
 </code></pre>
 
-<p>Every userspace binary in TuxSTEP is ELF and links against <code>/System/Library/Libraries/libSystem.so</code> — no exceptions. Every process makes Linux syscalls (translated by libsystem from BSD/Mach syscall conventions to Linux numbers). There is no second runtime, no parallel libc, no chroot, no namespace switching.</p>
-
-<div class="ok">
-<strong>The format question.</strong> Apple's userland source code can be compiled to either Mach-O or ELF. Mach-O is what macOS runs because XNU loads Mach-O. We're on Linux, so we compile the same source to ELF. The API surface, behavior, and developer experience are identical; the on-disk file format follows the kernel.
-</div>
-
 <h2 id="filesystem">Filesystem layout</h2>
 
 <p>Four real directories at root. No symlinks. Everything system-internal lives under <code>/System/Library/</code>. More pure than NeXTSTEP itself was.</p>
@@ -145,12 +139,6 @@ details > div.detail-body { padding: 4px 14px 8px; }
 └── Volumes/                             mounted external media
 </code></pre>
 
-<p>What's <em>not</em> at root: <code>/usr</code>, <code>/bin</code>, <code>/sbin</code>, <code>/lib</code>, <code>/lib64</code>, <code>/boot</code>, <code>/home</code>, <code>/Users</code>, <code>/etc</code>, <code>/var</code>, <code>/tmp</code>, <code>/dev</code>, <code>/sys</code>, <code>/proc</code>, <code>/run</code>, <code>/mnt</code>, <code>/opt</code>, <code>/private</code>. Apple's libsystem and downstream Apple-OSS components are patched at build time so their hardcoded path constants (<code>_PATH_DEVNULL</code>, <code>_PATH_PASSWD</code>, etc.) and direct path-string literals point at <code>/System/Library/Private/...</code>. Patches live per-component in <code>patches/</code> directories; the vendored Apple-OSS submodules themselves remain untouched. Build-time-only modification preserves the cheap-sync property — bumping Apple-OSS releases is still <code>git submodule update</code>; patches reapply.</p>
-
-<p>User homes (post-v0.1 multi-user support) live at <code>/Local/Users/&lt;name&gt;/</code> for interactive users and <code>/Network/Users/&lt;name&gt;/</code> for NFS-mounted users, following Gershwin's NeXT-style convention. There is no top-level <code>/Users</code>.</p>
-
-<p>The userland lives at <code>/System/Library/Tools/</code>; libraries at <code>/System/Library/Libraries/</code>. The shell's default <code>$PATH</code> is just <code>/System/Library/Tools</code>.</p>
-
 <h2 id="boot">Boot chain (v0.1)</h2>
 
 <p>The disk is laid out as two GPT partitions:</p>
@@ -160,22 +148,6 @@ details > div.detail-body { padding: 4px 14px 8px; }
 └── Partition 2: ext4, rest of disk
     └── /System/...                          (entire OS)
 </code></pre>
-
-<p>Boot sequence:</p>
-
-<ol>
-  <li><strong>UEFI firmware</strong> reads partition 1 (the hidden ESP) and executes <code>\EFI\BOOT\BOOTX64.EFI</code> (or <code>BOOTAA64.EFI</code> on arm64, <code>BOOTIA32.EFI</code> on UEFI i386). This is a thin <code>tuxstep/grub</code> stub (~1-3 MB) that knows how to read ext4. On legacy BIOS, GRUB stage 1 loads from MBR and stage 1.5 from the BIOS-boot region instead.</li>
-  <li><strong>Stub bootloader</strong> reads its config (which references partition 2 by UUID) and executes <code>/System/Library/Boot/kernel.efi</code>.</li>
-  <li><strong>Linux kernel</strong> (built with <code>CONFIG_EFI_STUB=y</code>, so the kernel image <em>is</em> an EFI binary) boots from there. KMS drivers built into the kernel come up automatically; framebuffer console renders at native resolution.</li>
-  <li><strong>initramfs</strong> mounts the squashfs/ext4 root, mounts the kernel-managed filesystems at their <code>/System/Library/Private</code> locations (devtmpfs, tmpfs for /tmp, etc.), and pivots.</li>
-  <li><strong>PID 1 = <code>/System/Library/Tools/zsh</code></strong> directly. No init system, no service supervisor, no auth chain. The user is at a <code>#</code> prompt as root on TTY1.</li>
-</ol>
-
-<p>The 5 MB FAT32 ESP is <strong>hidden</strong> by partition flags and never appears in <code>ls /</code>, <code>mount</code>, or <code>df</code> output — it's plumbing required by UEFI firmware, not part of the running system. After initial setup, kernel updates only write to <code>/System/Library/Boot/</code> on the ext4 partition; the ESP itself is touched once at install and never again.</p>
-
-<p>The bootloader is <code>tuxstep/grub</code>, a fork of upstream GNU GRUB. We fork to add TuxSTEP-specific UX: silent boot by default, Mac-style boot-key shortcuts (cmd-V for verbose boot, cmd-S for single-user mode, option/alt to pick boot volume, shift for safe boot, <code>C</code> to boot from CD), and a TuxSTEP-styled boot screen. GRUB chosen as the only mainstream bootloader covering BIOS i386/amd64 and UEFI i386/amd64/arm64 from a single codebase.</p>
-
-<p>v0.1 is intentionally minimal. <code>launchd</code>, <code>darlingserver</code>, login chain, getty, hot-plug, Mach IPC, and the GUI stack are all post-v0.1 work. The single-user-shell milestone proves the architecture without committing to subsystems whose design isn't yet locked.</p>
 
 <h3 id="dragdrop">Drag-and-drop deployment</h3>
 
