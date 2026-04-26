@@ -83,28 +83,71 @@ details > div.detail-body { padding: 4px 14px 8px; }
 <tr><td>Coreutils / shell</td><td>Apple's BSD-derived utilities (file_cmds, shell_cmds, system_cmds, network_cmds, text_cmds) + zsh, all libsystem-linked</td></tr>
 <tr><td>Objective-C runtime</td><td><code>libobjc2</code> (via Gershwin)</td></tr>
 <tr><td>Foundation / CoreFoundation</td><td><code>libs-base</code> + <code>libs-corebase</code> (GNUstep, via Gershwin), rebuilt against libsystem</td></tr>
-<tr><td>Filesystem layout</td><td>NeXT-style: <code>/System</code>, <code>/Network</code>, <code>/Local</code>, <code>/Volumes</code> at root. All system-internal Unix infrastructure under <code>/System/Library/</code>. No compat symlinks.</td></tr>
+<tr><td>Filesystem layout</td><td>NeXT-style: <code>/System</code>, <code>/Network</code>, <code>/Local</code>, <code>/Volumes</code> at root.</td></tr>
 </table>
 
 <h2 id="architecture">Architecture</h2>
 
 <p>One coherent stack, ELF-formatted throughout, libsystem-linked end to end.</p>
 
-<pre><code>+-------------------------------------------------------------+
-|  Cocoa-style applications (Obj-C, libobjc2, libs-base)      |
-+-------------------------------------------------------------+
-|  Apple BSD coreutils, zsh, dev tools (clang, lld, ar...)    |
-+-------------------------------------------------------------+
-|  Foundation (libs-base) | CoreFoundation (libs-corebase)    |
-|  libdispatch  |  libobjc2  |  tools-make                    |
-+-------------------------------------------------------------+
-|        Apple libsystem (libc, pthread, platform, malloc)    |
-|        ELF format. /System/Library/Libraries/libSystem.so   |
-+-------------------------------------------------------------+
-|                    Linux kernel + drivers                   |
-|                    KMS, devtmpfs, framebuffer console       |
-+-------------------------------------------------------------+
-</code></pre>
+<div style="background: #f8f9fa; border: 1px solid #e1e4e8; border-radius: 6px; padding: 18px; margin: 1em 0; overflow-x: auto;">
+<svg viewBox="0 0 720 484" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TuxSTEP architecture stack" style="width: 100%; max-width: 720px; height: auto; display: block; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, sans-serif;">
+
+  <!-- Layer 1: Apps -->
+  <g>
+    <rect x="0" y="0" width="720" height="80" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5" rx="6"/>
+    <line x1="240" y1="10" x2="240" y2="70" stroke="#1d4ed8" stroke-width="1" stroke-dasharray="3,3"/>
+    <line x1="480" y1="10" x2="480" y2="70" stroke="#1d4ed8" stroke-width="1" stroke-dasharray="3,3"/>
+    <text x="120" y="36" text-anchor="middle" font-size="14" font-weight="600" fill="#1e3a8a">Workspace.app</text>
+    <text x="120" y="56" text-anchor="middle" font-size="11" fill="#475569">file manager / shell</text>
+    <text x="360" y="36" text-anchor="middle" font-size="14" font-weight="600" fill="#1e3a8a">LoginWindow.app</text>
+    <text x="360" y="56" text-anchor="middle" font-size="11" fill="#475569">login chain</text>
+    <text x="600" y="36" text-anchor="middle" font-size="14" font-weight="600" fill="#1e3a8a">Cocoa apps</text>
+    <text x="600" y="56" text-anchor="middle" font-size="11" fill="#475569">.app bundles</text>
+  </g>
+
+  <!-- Layer 2: AppKit / Display backend -->
+  <g transform="translate(0, 84)">
+    <rect x="0" y="0" width="720" height="80" fill="#ede9fe" stroke="#6d28d9" stroke-width="1.5" rx="6"/>
+    <line x1="360" y1="10" x2="360" y2="70" stroke="#6d28d9" stroke-width="1" stroke-dasharray="3,3"/>
+    <text x="180" y="34" text-anchor="middle" font-size="14" font-weight="600" fill="#4c1d95">AppKit (libs-gui)</text>
+    <text x="180" y="54" text-anchor="middle" font-size="11" fill="#475569">windows, controls, events</text>
+    <text x="540" y="34" text-anchor="middle" font-size="14" font-weight="600" fill="#4c1d95">Display backend (libs-back)</text>
+    <text x="540" y="54" text-anchor="middle" font-size="11" fill="#475569">Quartz: libs-opal, libs-quartzcore</text>
+  </g>
+
+  <!-- Layer 3: CLI tools -->
+  <g transform="translate(0, 168)">
+    <rect x="0" y="0" width="720" height="60" fill="#dcfce7" stroke="#15803d" stroke-width="1.5" rx="6"/>
+    <text x="360" y="28" text-anchor="middle" font-size="14" font-weight="600" fill="#14532d">Apple BSD coreutils</text>
+    <text x="360" y="47" text-anchor="middle" font-size="11" fill="#475569" font-family="ui-monospace, SF Mono, Menlo, monospace">/System/Library/Tools/</text>
+  </g>
+
+  <!-- Layer 4: Foundation / CoreFoundation -->
+  <g transform="translate(0, 232)">
+    <rect x="0" y="0" width="720" height="80" fill="#fef3c7" stroke="#b45309" stroke-width="1.5" rx="6"/>
+    <line x1="360" y1="10" x2="360" y2="50" stroke="#b45309" stroke-width="1" stroke-dasharray="3,3"/>
+    <text x="180" y="32" text-anchor="middle" font-size="14" font-weight="600" fill="#78350f">Foundation (libs-base)</text>
+    <text x="540" y="32" text-anchor="middle" font-size="14" font-weight="600" fill="#78350f">CoreFoundation (libs-corebase)</text>
+    <text x="360" y="62" text-anchor="middle" font-size="13" fill="#78350f">libdispatch  &#8226;  libobjc2  &#8226;  tools-make</text>
+  </g>
+
+  <!-- Layer 5: libsystem -->
+  <g transform="translate(0, 316)">
+    <rect x="0" y="0" width="720" height="70" fill="#fed7aa" stroke="#c2410c" stroke-width="1.5" rx="6"/>
+    <text x="360" y="30" text-anchor="middle" font-size="14" font-weight="600" fill="#7c2d12">Apple libsystem (libc, pthread, platform, malloc)</text>
+    <text x="360" y="52" text-anchor="middle" font-size="12" fill="#475569" font-family="ui-monospace, SF Mono, Menlo, monospace">/System/Library/Libraries/libSystem.so</text>
+  </g>
+
+  <!-- Layer 6: Linux kernel -->
+  <g transform="translate(0, 390)">
+    <rect x="0" y="0" width="720" height="70" fill="#e5e7eb" stroke="#374151" stroke-width="1.5" rx="6"/>
+    <text x="360" y="30" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">Linux kernel + drivers</text>
+    <text x="360" y="52" text-anchor="middle" font-size="12" fill="#475569">KMS, devtmpfs, framebuffer console</text>
+  </g>
+
+</svg>
+</div>
 
 <h2 id="filesystem">Filesystem layout</h2>
 
