@@ -51,7 +51,7 @@ details > div.detail-body { padding: 4px 14px 8px; }
 
 <h1>TuxSTEP — design document <small class="muted">v3.3</small></h1>
 
-<p>A modern NeXT-inspired operating system. Linux kernel underneath, <strong>a Darwin userland on top</strong>: Apple's libsystem as the system libc, BSD coreutils, and GNUstep frameworks (via Gershwin) for Cocoa-style applications. ELF-formatted, no Mach-O execution.</p>
+<p>A modern NeXT-inspired operating system. Linux kernel underneath, <strong>a Darwin userland on top</strong>: Apple's libsystem as the system libc, BSD coreutils, and GNUstep frameworks (via Gershwin) for Cocoa-style applications.</p>
 
 <p><strong>For macOS applications</strong>, TuxSTEP makes porting easier than any other solution — Apple's libsystem ships the BSD APIs (<code>kqueue</code>, <code>kevent</code>, <code>mach_absolute_time</code>, FSEvents) that glibc lacks, Apple's headers install at <code>/System/Library/Headers/</code>, and GNUstep provides source-compatible Cocoa frameworks.</p>
 
