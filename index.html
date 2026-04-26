@@ -23,20 +23,87 @@ th { background: #f4f4f4; }
 .tag-no   { background: #ffe7e7; color: #8a1a1a; }
 .tag-mid  { background: #fff8c5; color: #7d5b00; }
 small.muted { color: #888; }
+
+header.logo { text-align: center; margin: 2em 0 1em; }
+header.logo img { max-width: 220px; height: auto; }
+
+nav.toc { background: #f8f9fa; border: 1px solid #e1e4e8; border-radius: 6px; padding: 14px 22px; margin: 2em 0; }
+nav.toc h2 { margin: 0 0 10px; font-size: 0.85em; border: none; padding: 0; color: #555; text-transform: uppercase; letter-spacing: 0.05em; }
+nav.toc ol { margin: 0; padding-left: 22px; columns: 2; column-gap: 2em; }
+nav.toc li { margin: 4px 0; break-inside: avoid; }
+nav.toc a { color: #0366d6; text-decoration: none; }
+nav.toc a:hover { text-decoration: underline; }
+
+details { margin: 1em 0; border: 1px solid #e1e4e8; border-radius: 6px; }
+details > summary { cursor: pointer; padding: 10px 14px; background: #f6f8fa; border-radius: 6px; font-weight: 600; user-select: none; list-style: none; }
+details > summary::before { content: "▸"; display: inline-block; margin-right: 8px; transition: transform 0.15s; color: #888; }
+details[open] > summary::before { transform: rotate(90deg); }
+details > summary:hover { background: #eef0f2; }
+details[open] > summary { border-bottom: 1px solid #e1e4e8; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+details > div.detail-body { padding: 4px 14px 8px; }
 </style>
 </head>
 <body>
 
-<h1>TuxSTEP — design document <small class="muted">v1.0</small></h1>
-<p>A NeXTSTEP-style userspace on a Linux kernel, built from GNUstep + Gershwin + curated Apple OSS sources. <strong>Tux</strong> (Linux mascot) + <strong>STEP</strong> (NeXTSTEP heritage). Generated 2026-04-25; reflects the actual Gershwin filesystem layout from <code>~/gershwin-developer/Library/Sources/tools-make/FilesystemLayouts/gershwin</code>.</p>
+<header class="logo">
+  <img src="logo.jpg" alt="TuxSTEP — Tux atop a NeXT cube">
+</header>
 
-<h2>Vision</h2>
+<h1>TuxSTEP — design document <small class="muted">v2.0</small></h1>
 
-<p>A Linux distribution whose userspace is a direct descendant of NeXTSTEP — built from GNUstep + Gershwin + curated Apple open-source components — with native ELF binaries that boot directly on a Linux kernel. No Darling emulation; no Mach-O wrappers; no half-finished framework stubs. Where Gershwin/GNUstep already provides something good, use it. Where Apple ships open-source code worth keeping, integrate it directly from <code>github.com/apple-oss-distributions</code> at build time, with our patches in our repo.</p>
+<p>A Linux distribution that runs Mach-O binaries natively. Userspace is a hybrid: GNUstep + Gershwin's NeXTSTEP-style desktop running as ELF/glibc, plus an integrated Darling-derived Mach-O runtime that lets brew bottles, MacPorts ports, and third-party <code>.app</code> bundles execute unmodified. <strong>Tux</strong> (Linux mascot) + <strong>STEP</strong> (NeXTSTEP heritage). v2.0 generated 2026-04-26; reflects the source registry at <a href="https://github.com/tuxstep/tuxstep/blob/main/ci/apple-sources.yml"><code>github.com/tuxstep/tuxstep/blob/main/ci/apple-sources.yml</code></a>.</p>
 
-<h2>Filesystem layout (the Gershwin layout, authoritative)</h2>
+<nav class="toc">
+<h2>Contents</h2>
+<ol>
+  <li><a href="#vision">Vision</a></li>
+  <li><a href="#architecture">Architecture: dual-track ELF and Mach-O</a></li>
+  <li><a href="#filesystem">Filesystem layout</a></li>
+  <li><a href="#users">Where users live</a></li>
+  <li><a href="#reuse">What we reuse from GNUstep + Gershwin</a></li>
+  <li><a href="#apple-oss">What TuxSTEP adds from Apple OSS</a></li>
+  <li><a href="#build-model">Build model: Apple OSS upstream + Darling forks</a></li>
+  <li><a href="#bootstrap">Bootstrap order</a></li>
+  <li><a href="#iso-pipeline">ISO build pipeline</a></li>
+  <li><a href="#phases">Phases</a></li>
+  <li><a href="#effort">Effort</a></li>
+  <li><a href="#deferred">What's deliberately deferred</a></li>
+  <li><a href="#risks">Risks</a></li>
+</ol>
+</nav>
 
-<p>Gershwin's installation domains are defined in <code>~/gershwin-developer/Library/Sources/tools-make/FilesystemLayouts/gershwin</code>. <strong>This is the source of truth</strong> — TuxSTEP follows it exactly. The layout is faithful to NeXTSTEP / OpenStep, with three system-wide domains plus a user domain.</p>
+<h2 id="vision">Vision</h2>
+
+<p>A Linux distribution where two userspace tracks coexist on the same kernel:</p>
+
+<ul>
+<li><strong>ELF / glibc track</strong> — the NeXTSTEP-flavored side. Devuan substrate, GNUstep + Gershwin desktop, xlibre, native TuxSTEP applications. Linked against glibc; familiar Linux tooling (gdb, strace, perf) works normally.</li>
+<li><strong>Mach-O / libsystem-port track</strong> — the Mach-capable side. Apple OSS userland (cctools, network_cmds, file_cmds, mDNSResponder, launchd as PID 1) plus user-installed Mac binaries (brew bottles, MacPorts ports, third-party <code>.app</code> bundles). Linked against <code>libSystem.B.dylib</code> via Darling's libsystem-port (forked into the tuxstep org).</li>
+</ul>
+
+<p>The kernel routes binaries to their loader by binary format — both tracks live on the same filesystem, no <code>darling shell</code>-style namespace switch. Where Gershwin / GNUstep already provides something good, use it. Where Apple ships open-source code worth keeping, integrate it directly from <code>apple-oss-distributions</code>, built against libsystem-port. Where Darling has done the hard work of porting Apple's runtime to Linux, fork their components into <code>github.com/tuxstep/darling-*</code> and inherit ten years of upstream effort.</p>
+
+<h2 id="architecture">Architecture: dual-track ELF and Mach-O</h2>
+
+<p>Two parallel tracks share filesystem and kernel resources, but NOT in-process libraries.</p>
+
+<table>
+<tr><th>Track</th><th>What lives there</th><th>libc</th></tr>
+<tr><td><strong>ELF / glibc</strong></td><td>Devuan substrate (bash, sshd, apt, dpkg, kernel modules); xlibre; GNUstep (libs-base, libs-gui, libs-back, libs-corebase, libobjc2); Gershwin desktop (Workspace.app, LoginWindow, SystemPreferences, dshelper, gpbs, defaults, plutil, etc.); darlingserver (Mach IPC bridge daemon)</td><td><code>/lib/x86_64-linux-gnu/libc.so.6</code></td></tr>
+<tr><td><strong>Mach-O / libsystem-port</strong></td><td>Apple OSS userland (cctools, network_cmds, file_cmds, mDNSResponder, launchd); Darling runtime userspace (dyld, libsystem-port, libpthread, libplatform, libdispatch, security-shim); brew bottles, MacPorts ports, third-party <code>.app</code> bundles</td><td><code>/usr/lib/libSystem.B.dylib</code></td></tr>
+</table>
+
+<p>The Linux kernel routes binaries by format — ELF kernel loader for ELF, <code>mach-o-binfmt</code> module → <code>/usr/lib/dyld</code> for Mach-O. The tracks coexist transparently — no <code>darling shell</code> ceremony, no chroot, no prefix.</p>
+
+<div class="warn">
+<strong>Cross-track rule.</strong> A single process loads libraries from one track only. Mach-O processes don't <code>dlopen()</code> ELF <code>.so</code> files; ELF processes don't <code>dlopen()</code> Mach-O dylibs. Mixing them in one address space cross-loads incompatible libcs (heap corruption hazard). Cross-track communication works fine <em>across</em> processes (pipes, sockets, signals, files — libc-agnostic at the kernel boundary).
+</div>
+
+<p><strong>Consequence:</strong> GNUstep's ELF Foundation (libs-base) is unreachable from a Mach-O brew bottle that links Apple's Foundation in-process. Accepted v1 scope cut — most CLI bottles don't link Foundation; pure C/C++ bottles work. Future work could build GNUstep a second time as Mach-O against libsystem-port to cover this case; out of scope for v1.</p>
+
+<h2 id="filesystem">Filesystem layout</h2>
+
+<p>Gershwin's installation domains are defined in <code>~/gershwin-developer/Library/Sources/tools-make/FilesystemLayouts/gershwin</code>. <strong>This is the source of truth</strong> — TuxSTEP follows it exactly. Three system-wide domains plus a user domain, faithful to NeXTSTEP / OpenStep.</p>
 
 <h3>The four domains</h3>
 
@@ -48,121 +115,7 @@ small.muted { color: #888; }
 <tr><td><strong>User</strong></td><td>Per-user installs and preferences. Lives in each user's home directory.</td><td><code>~/</code> (relative to user home)</td><td>The user themselves</td></tr>
 </table>
 
-<p>Each domain has the same structural skeleton. Looking up a resource walks: <strong>User → Local → Network → System</strong> (most-specific wins). This is OpenStep's classic four-domain search path.</p>
-
-<h3>Concrete tree (from the actual layout file)</h3>
-
-<pre><code>/                                               GNUSTEP_DEFAULT_PREFIX=/
-│
-├── System/                                     SYSTEM domain — distro-shipped
-│   ├── Applications/                           GNUSTEP_SYSTEM_APPS
-│   │   └── Admin/                              GNUSTEP_SYSTEM_ADMIN_APPS
-│   ├── Library/                                GNUSTEP_SYSTEM_LIBRARY
-│   │   ├── Frameworks/                         (Foundation.framework, AppKit.framework, etc.)
-│   │   ├── Headers/                            GNUSTEP_SYSTEM_HEADERS
-│   │   ├── Libraries/                          GNUSTEP_SYSTEM_LIBRARIES (the .so files)
-│   │   ├── Tools/                              GNUSTEP_SYSTEM_TOOLS  (CLI binaries — defaults, plutil, dscli, ifconfig, etc.)
-│   │   │   └── Admin/                          GNUSTEP_SYSTEM_ADMIN_TOOLS
-│   │   ├── WebApplications/                    GNUSTEP_SYSTEM_WEB_APPS
-│   │   ├── Documentation/                      GNUSTEP_SYSTEM_DOC
-│   │   │   ├── man/
-│   │   │   └── info/
-│   │   ├── Makefiles/                          GNUSTEP_MAKEFILES (GNUstep.sh, .make files)
-│   │   ├── LaunchDaemons/                      System-wide launchd plists  ← TuxSTEP addition
-│   │   ├── LaunchAgents/                       Default per-user launch agents  ← TuxSTEP addition
-│   │   └── Scripts/                            LoginWindow.sh, Gershwin.sh
-│   └── Users/                                  GNUSTEP_SYSTEM_USERS_DIR — system-account homes (root, sshd, dshelper)
-│
-├── Network/                                    NETWORK domain — site-wide / NFS-mounted
-│   ├── Applications/                           GNUSTEP_NETWORK_APPS
-│   │   └── Admin/
-│   ├── Library/                                GNUSTEP_NETWORK_LIBRARY
-│   │   ├── Headers/                            GNUSTEP_NETWORK_HEADERS
-│   │   ├── Libraries/
-│   │   ├── Tools/                              GNUSTEP_NETWORK_TOOLS
-│   │   │   └── Admin/
-│   │   ├── WebApplications/
-│   │   └── Documentation/{man,info}/
-│   └── Users/                                  GNUSTEP_NETWORK_USERS_DIR — NFS-mounted user homes
-│
-├── Local/                                      LOCAL domain — per-machine sysadmin installs
-│   ├── Applications/                           GNUSTEP_LOCAL_APPS
-│   │   └── Admin/
-│   ├── Library/                                GNUSTEP_LOCAL_LIBRARY
-│   │   ├── Headers/
-│   │   ├── Libraries/
-│   │   ├── Tools/                              GNUSTEP_LOCAL_TOOLS
-│   │   │   └── Admin/
-│   │   ├── WebApplications/
-│   │   └── Documentation/{man,info}/
-│   └── Users/                                  GNUSTEP_LOCAL_USERS_DIR — typical user homes  ← MOST USERS LIVE HERE
-│       └── &lt;username&gt;/                         each user's home
-│           ├── Applications/                   GNUSTEP_USER_DIR_APPS
-│           │   └── Admin/
-│           ├── Library/                        GNUSTEP_USER_DIR_LIBRARY
-│           │   ├── Headers/
-│           │   ├── Libraries/
-│           │   ├── Tools/                      GNUSTEP_USER_DIR_TOOLS
-│           │   │   └── Admin/
-│           │   ├── WebApplications/
-│           │   ├── Documentation/{man,info}/
-│           │   └── Preferences/                GNUSTEP_USER_DEFAULTS_DIR
-│           │       └── GNUstep.conf            GNUSTEP_USER_CONFIG_FILE
-│           ├── Desktop/
-│           ├── Documents/
-│           └── Downloads/
-│
-│ === Linux compatibility / kernel layer (everything below) ===
-│
-├── usr/                                        Standard Linux locations for kernel/distro infrastructure
-│   ├── bin/                                    GNU coreutils, util-linux, debian package contents
-│   ├── sbin/                                   System tools (ip, dhclient, dpkg, apt, systemd binaries we still want)
-│   ├── lib/                                    System ELF .so files for things outside GNUstep
-│   ├── share/                                  Locale data, font config, X11 system files
-│   └── include/                                Kernel/glibc headers
-├── bin   → usr/bin                             Compatibility symlinks (apt, dpkg, kernel scripts expect these)
-├── sbin  → usr/sbin
-├── lib   → usr/lib
-├── lib64 → usr/lib64
-│
-├── etc/                                        Standard Linux config (fstab, hostname, network, /etc/passwd, /etc/group, /etc/shadow when present)
-├── var/                                        Standard Linux variable data
-│   ├── log/
-│   ├── run/                                    pid files, /var/run/dshelper.sock lives here
-│   ├── cache/
-│   └── empty/                                  for sshd privsep
-├── tmp/                                        Standard temp
-│
-├── proc/, /sys/, /dev/                         Kernel-managed; non-negotiable Linux locations
-├── boot/                                       Kernel + initramfs + GRUB
-└── Volumes/                                    Mounted media (NeXTSTEP/Apple convention; analog of /mnt or /media)</code></pre>
-
-<div class="ok">
-<strong>Two key things this gets right that my earlier draft did not:</strong>
-<ul>
-<li><strong>The three-domain split is real and at the root of the FS.</strong> <code>/System</code>, <code>/Network</code>, <code>/Local</code> are siblings, not nested. This is OpenStep's heritage. Gershwin's <code>tools-make</code> uses these consistently in its install rules.</li>
-<li><strong>CLI tools live at <code>/System/Library/Tools</code>, not in <code>/usr/bin</code> or <code>/System/Library/CoreServices</code>.</strong> Gershwin's <code>defaults</code>, <code>plutil</code>, <code>dscli</code>, <code>gopen</code>, <code>gpbs</code>, <code>say</code>, <code>autogsdoc</code>, etc., all install there via <code>GNUSTEP_SYSTEM_TOOLS</code>. Apple OSS additions we port (defaults, plutil, ifconfig, otool, lipo, etc.) install there too.</li>
-</ul>
-</div>
-
-<h3>The user-home structure deserves its own attention</h3>
-
-<p>Each user's home is itself a miniature domain. Inside <code>/Local/Users/jmaloney/</code>:</p>
-
-<pre><code>~/
-├── Applications/                                Per-user installed apps
-│   └── Admin/
-├── Library/
-│   ├── Headers/, Libraries/, Tools/, WebApplications/, Documentation/
-│   └── Preferences/
-│       ├── GNUstep.conf                        Per-user GNUstep config
-│       ├── .GNUstepDefaults                    Defaults database
-│       └── &lt;App&gt;.plist                         Per-app preferences (one file per app)
-├── Desktop/
-├── Documents/
-└── Downloads/</code></pre>
-
-<p>This is exactly what <code>defaults read &lt;domain&gt;</code> reads from and <code>defaults write</code> writes to. Compatible with any code that uses <code>NSUserDefaults</code>.</p>
+<p>Each domain has the same structural skeleton. Looking up a Cocoa-managed resource walks: <strong>User → Local → Network → System</strong> (most-specific wins). This is OpenStep's classic four-domain search path, baked into GNUstep's runtime.</p>
 
 <h3>Search-path semantics</h3>
 
@@ -175,27 +128,103 @@ small.muted { color: #888; }
   <li><strong>System</strong> (<code>/System/Library/...</code>) — distro defaults; lowest priority but always present</li>
 </ol>
 
-<p>This is why the layout matters: it's not aesthetic, it's a <em>working dependency-resolution mechanism</em> baked into GNUstep's runtime.</p>
+<h3>Install location convention (full)</h3>
+
+<p>The four-domain layout covers Cocoa-style apps and frameworks. Apple-flavored Unix tools and the Mach-O runtime live in standard FHS locations alongside it:</p>
+
+<table>
+<tr><th>Path</th><th>What</th></tr>
+<tr><td><code>/System/Library/Frameworks/</code></td><td>GNUstep-built ELF Cocoa-API frameworks (Foundation via libs-base, AppKit via libs-gui, CoreFoundation via libs-corebase) plus Apple-OSS-derived (Security via OpenSSL-stubbed shim, Mach-O)</td></tr>
+<tr><td><code>/System/Library/Tools/</code></td><td>TuxSTEP-layer Mach-O daemons and tools (launchd, launchctl, mDNSResponder, dns-sd) and ELF GNUstep tools (defaults, plutil, gopen, gpbs, dscli, etc.)</td></tr>
+<tr><td><code>/System/Applications/</code></td><td>Native ELF Gershwin <code>.app</code> bundles (Workspace, LoginWindow, SystemPreferences, etc.)</td></tr>
+<tr><td><code>/Applications/</code></td><td>User-installed <code>.app</code> bundles (typically Mach-O if from brew/MacPorts/third-party)</td></tr>
+<tr><td><code>/usr/bin</code>, <code>/usr/sbin/</code></td><td>Apple-flavored BSD/Unix Mach-O CLI tools (otool, ifconfig, xattr, etc.) — link libsystem-port</td></tr>
+<tr><td><code>/usr/lib/libSystem.B.dylib</code></td><td>libc-equivalent every Mach-O TuxSTEP-native binary links against (libsystem-port)</td></tr>
+<tr><td><code>/usr/lib/system/</code></td><td><code>libsystem_kernel</code>, <code>libsystem_c</code>, <code>libsystem_pthread</code>, <code>libdispatch</code>, <code>libplatform</code> — constituent dylibs</td></tr>
+<tr><td><code>/usr/lib/dyld</code></td><td>Mach-O dynamic linker (Darling dyld-port)</td></tr>
+<tr><td><code>/usr/sbin/darlingserver</code></td><td>ELF Mach IPC bridge daemon (started by initramfs before PID 1)</td></tr>
+<tr><td><code>/lib/x86_64-linux-gnu/</code></td><td>Devuan glibc + ld-linux. Used by ELF binaries via their hardcoded RPATH. Not on PATH; not visible to Mach-O code.</td></tr>
+</table>
+
+<details>
+<summary>Concrete tree (from the actual Gershwin layout file)</summary>
+<div class="detail-body">
+
+<pre><code>/                                               GNUSTEP_DEFAULT_PREFIX=/
+│
+├── System/                                     SYSTEM domain — distro-shipped
+│   ├── Applications/                           GNUSTEP_SYSTEM_APPS
+│   │   └── Admin/                              GNUSTEP_SYSTEM_ADMIN_APPS
+│   ├── Library/                                GNUSTEP_SYSTEM_LIBRARY
+│   │   ├── Frameworks/                         (Foundation.framework, AppKit.framework, etc.)
+│   │   ├── Headers/                            GNUSTEP_SYSTEM_HEADERS
+│   │   ├── Libraries/                          GNUSTEP_SYSTEM_LIBRARIES (the .so files)
+│   │   ├── Tools/                              GNUSTEP_SYSTEM_TOOLS
+│   │   ├── WebApplications/                    GNUSTEP_SYSTEM_WEB_APPS
+│   │   ├── Documentation/{man,info}/           GNUSTEP_SYSTEM_DOC
+│   │   ├── Makefiles/                          GNUSTEP_MAKEFILES
+│   │   ├── LaunchDaemons/                      System-wide launchd plists
+│   │   ├── LaunchAgents/                       Default per-user launch agents
+│   │   └── Scripts/
+│   └── Users/                                  GNUSTEP_SYSTEM_USERS_DIR — system-account homes
+│
+├── Network/                                    NETWORK domain — site-wide / NFS-mounted
+│   ├── Applications/, Library/{...}, Users/
+│
+├── Local/                                      LOCAL domain — per-machine sysadmin installs
+│   ├── Applications/, Library/{...}
+│   └── Users/                                  ← MOST USERS LIVE HERE
+│       └── &lt;username&gt;/
+│           ├── Applications/
+│           ├── Library/{Headers, Libraries, Tools, ..., Preferences/}
+│           └── Desktop/, Documents/, Downloads/
+│
+│ === Linux compatibility / kernel layer ===
+│
+├── usr/                                        Standard Linux locations
+│   ├── bin/, sbin/                             ELF Devuan tools + Mach-O Apple OSS userland
+│   ├── lib/                                    libSystem.B.dylib, dyld, libsystem_*
+│   ├── share/, include/
+├── lib/x86_64-linux-gnu/                       Devuan glibc + ld-linux
+├── etc/, var/, tmp/, proc/, sys/, dev/, boot/  Standard Linux
+└── Volumes/                                    Mounted media
+</code></pre>
+
+</div>
+</details>
+
+<details>
+<summary>The user-home structure</summary>
+<div class="detail-body">
+
+<p>Each user's home is itself a miniature domain. Inside <code>/Local/Users/&lt;name&gt;/</code>:</p>
+
+<pre><code>~/
+├── Applications/                                Per-user installed apps
+│   └── Admin/
+├── Library/
+│   ├── Headers/, Libraries/, Tools/, WebApplications/, Documentation/
+│   └── Preferences/
+│       ├── GNUstep.conf                        Per-user GNUstep config
+│       ├── .GNUstepDefaults                    Defaults database
+│       └── &lt;App&gt;.plist                         Per-app preferences (one file per app)
+├── Desktop/
+├── Documents/
+└── Downloads/
+</code></pre>
+
+<p>This is exactly what <code>defaults read &lt;domain&gt;</code> reads from and <code>defaults write</code> writes to. Compatible with any code that uses <code>NSUserDefaults</code>.</p>
+
+</div>
+</details>
 
 <h3>PATH for the shell</h3>
 
-<p>Default <code>PATH</code> on a TuxSTEP shell login should reflect the four-domain order, with Linux fallbacks:</p>
+<p>Default <code>PATH</code> reflects the four-domain order, with Linux fallbacks:</p>
 
 <pre><code>PATH=~/Library/Tools:/Local/Library/Tools:/Network/Library/Tools:/System/Library/Tools:/usr/bin:/bin:/usr/sbin:/sbin</code></pre>
 
-<p>So a user's locally-installed <code>defaults</code> wins over the system one, but every domain has its tools available, and Linux-side tools (apt, kernel scripts) are still reachable as fallbacks.</p>
-
-<h2>What goes in each domain in TuxSTEP's v1</h2>
-
-<table>
-<tr><th>Domain</th><th>v1 contents</th></tr>
-<tr><td><strong>System</strong></td><td>The TuxSTEP distro itself. GNUstep frameworks (Foundation, AppKit, CoreFoundation/libs-corebase). Gershwin desktop components (LoginWindow, SystemPreferences, dshelper, gpbs, gdnc, gdomap, etc.). Curated Apple OSS tools (defaults from libs-base, plutil, otool, lipo, ifconfig, route, openssh, etc.). The launchd-port binary as PID 1. <code>/System/Library/LaunchDaemons/*.plist</code> for system services.</td></tr>
-<tr><td><strong>Network</strong></td><td>Empty in v1. Reserved for sites that want NFS-mounted Gershwin apps; admin can populate post-install.</td></tr>
-<tr><td><strong>Local</strong></td><td>Empty in v1 / live-ISO mode. Becomes meaningful in v2 (installable form): the local sysadmin uses this for third-party apps, custom tools, additional users (<code>/Local/Users/&lt;name&gt;/</code>).</td></tr>
-<tr><td><strong>User</strong></td><td>Created on first login. Each user has full structure under <code>/Local/Users/&lt;name&gt;/</code>.</td></tr>
-</table>
-
-<h2>Where users live</h2>
+<h2 id="users">Where users live</h2>
 
 <table>
 <tr><th>User type</th><th>Home directory</th></tr>
@@ -204,18 +233,15 @@ small.muted { color: #888; }
 <tr><td>NFS-mounted users (multi-machine site)</td><td><code>/Network/Users/&lt;name&gt;/</code> — site-specific</td></tr>
 </table>
 
-<p>This means:</p>
-<ul>
-  <li><code>/etc/passwd</code> entries for normal users have <code>HOME=/Local/Users/&lt;name&gt;</code>, not <code>/home/&lt;name&gt;</code>.</li>
-  <li>The dshelper-baked-in user records the agent saw in Gershwin's source already use <code>/Local/Users/&lt;name&gt;/</code> by default.</li>
-  <li>If you want symlinks for FHS compat (some Linux scripts hardcode <code>/home</code>), add <code>/home → /Local/Users</code>. Document it explicitly.</li>
-</ul>
+<p><code>/etc/passwd</code> entries for normal users have <code>HOME=/Local/Users/&lt;name&gt;</code>, not <code>/home/&lt;name&gt;</code>. dshelper's user records already use <code>/Local/Users/&lt;name&gt;/</code> by default. A <code>/home → /Local/Users</code> symlink ships for FHS-compat scripts that hardcode <code>/home</code>.</p>
 
-<h2>What we reuse from GNUstep + Gershwin (no re-porting needed)</h2>
+<h2 id="reuse">What we reuse from GNUstep + Gershwin</h2>
 
-<p>These tools/components install to <code>/System/Library/Tools</code>, <code>/System/Library/Frameworks</code>, or <code>/System/Applications</code> via <code>make install GNUSTEP_INSTALLATION_DOMAIN=SYSTEM</code>. They're already working today on Linux.</p>
+<p>These components install via <code>make install GNUSTEP_INSTALLATION_DOMAIN=SYSTEM</code> from <code>gershwin-developer</code>. Already working today on Linux as ELF — no Mach-O port required. They live on the ELF/glibc track.</p>
 
-<h3>From <code>libs-base/Tools/</code> (install to <code>/System/Library/Tools</code>)</h3>
+<details>
+<summary>From <code>libs-base/Tools/</code> (install to <code>/System/Library/Tools</code>)</summary>
+<div class="detail-body">
 
 <table>
 <tr><th>Tool</th><th>Apple equivalent</th><th>Role</th></tr>
@@ -229,7 +255,12 @@ small.muted { color: #888; }
 <tr><td><code>make_strings</code></td><td>genstrings</td><td>Extract localizable strings</td></tr>
 </table>
 
-<h3>From <code>libs-gui/Tools/</code> (install to <code>/System/Library/Tools</code>)</h3>
+</div>
+</details>
+
+<details>
+<summary>From <code>libs-gui/Tools/</code></summary>
+<div class="detail-body">
 
 <table>
 <tr><th>Tool</th><th>Apple equivalent</th><th>Role</th></tr>
@@ -240,20 +271,23 @@ small.muted { color: #888; }
 <tr><td><code>GSspell</code></td><td>Spell checker daemon</td><td>System spell check</td></tr>
 </table>
 
-<h3>From <code>libs-back/Tools/</code></h3>
+</div>
+</details>
+
+<details>
+<summary>From <code>libs-back/Tools/</code> and <code>gershwin-components</code></summary>
+<div class="detail-body">
 
 <table>
 <tr><th>Tool</th><th>Apple equivalent</th><th>Role</th></tr>
 <tr><td><code>gpbs</code></td><td><code>pbs</code> / pasteboard server</td><td>General Pasteboard Server (clipboard)</td></tr>
 </table>
 
-<h3>From <code>gershwin-components</code> — daemons, apps, services</h3>
-
 <table>
 <tr><th>Component</th><th>Type</th><th>Where it installs</th><th>Role</th></tr>
 <tr><td><code>dscli</code></td><td>CLI tool</td><td><code>/System/Library/Tools/dscli</code></td><td>Directory Services CLI (talks to dshelper)</td></tr>
-<tr><td><code>dshelper</code></td><td>Daemon</td><td>Bin path: <code>/System/Library/Tools</code>; plist: <code>/System/Library/LaunchDaemons</code></td><td>User/group/auth daemon (Unix socket protocol)</td></tr>
-<tr><td><code>nss_gershwin</code></td><td>NSS module</td><td><code>/usr/lib/libnss_gershwin.so</code> (Linux NSS searches there)</td><td>NSS hook: <code>getpwnam</code> → dshelper</td></tr>
+<tr><td><code>dshelper</code></td><td>Daemon</td><td>Bin: <code>/System/Library/Tools</code>; plist: <code>/System/Library/LaunchDaemons</code></td><td>User/group/auth daemon (Unix socket protocol)</td></tr>
+<tr><td><code>nss_gershwin</code></td><td>NSS module</td><td><code>/usr/lib/libnss_gershwin.so</code></td><td>NSS hook: <code>getpwnam</code> → dshelper</td></tr>
 <tr><td><code>LoginWindow</code></td><td>App</td><td><code>/System/Applications/LoginWindow.app</code></td><td>Graphical login</td></tr>
 <tr><td><code>SystemPreferences</code></td><td>App</td><td><code>/System/Applications/SystemPreferences.app</code></td><td>Settings panel</td></tr>
 <tr><td><code>Console</code> / <code>Processes</code> / <code>Screenshot</code> / <code>NetworkBrowser</code> / <code>RemoteDesktop</code></td><td>Apps</td><td><code>/System/Applications/&lt;App&gt;.app</code></td><td>Various utilities</td></tr>
@@ -263,272 +297,160 @@ small.muted { color: #888; }
 <tr><td><code>minibus</code></td><td>Daemon</td><td>Started by launchd</td><td>Lightweight D-Bus replacement</td></tr>
 </table>
 
-<h2>What TuxSTEP adds from Apple OSS</h2>
+</div>
+</details>
 
-<p>Pulled fresh at build time from <code>github.com/apple-oss-distributions/*</code>, patched in TuxSTEP's repo. Install to <code>/System/Library/Tools</code>.</p>
+<h2 id="apple-oss">What TuxSTEP adds from Apple OSS</h2>
 
-<table>
-<tr><th>Component</th><th>Source</th><th>Install path</th><th>Why</th></tr>
-<tr><td><code>launchd</code> + <code>launchctl</code></td><td><code>launchd-842.92.1</code></td><td>launchd → <code>/sbin/init</code> (PID 1); launchctl → <code>/System/Library/Tools/launchctl</code></td><td>Real launchd, no Mach-bootstrap subsystem (dead code on Linux). The reason TuxSTEP exists rather than using systemd.</td></tr>
-<tr><td>cctools (otool, lipo, install_name_tool, nm, strip, ar, ranlib)</td><td><code>tpoechtrager/cctools-port</code></td><td><code>/System/Library/Tools/</code></td><td>Mach-O binary toolchain — useful for cross-development to macOS. Already portable.</td></tr>
-<tr><td>Apple's <code>defaults</code></td><td>—</td><td>n/a</td><td>Use GNUstep's <code>defaults</code> instead; it's actually more complete</td></tr>
-<tr><td>system_cmds subset (pwd_mkdb, getty, sysctl, vipw, vifs, getconf)</td><td><code>system_cmds-NNN</code></td><td><code>/System/Library/Tools/</code></td><td>POSIX tools with Apple flavor; pwd_mkdb is needed by dshelper</td></tr>
-<tr><td>network_cmds subset (ifconfig, route, netstat, arp, ndp)</td><td><code>network_cmds-NNN</code></td><td><code>/System/Library/Tools/</code></td><td>FreeBSD-flavored network UX</td></tr>
-<tr><td>file_cmds <code>xattr</code></td><td><code>file_cmds-NNN</code></td><td><code>/System/Library/Tools/xattr</code></td><td>Extended attributes for macOS-script compat</td></tr>
-<tr><td>Apple's openssh fork</td><td><code>OpenSSH-NNN</code></td><td><code>/usr/sbin/sshd</code> (FHS) + plist at <code>/System/Library/LaunchDaemons/com.openssh.sshd.plist</code></td><td>Optional — standard Linux openssh works fine</td></tr>
-</table>
+<p>Pulled at build time from <code>github.com/apple-oss-distributions</code>, patched in <code>ci/patches/&lt;name&gt;/</code>, built against libsystem-port (so they're Mach-O binaries in the rootfs). The full registry with pinned tags lives at <a href="https://github.com/tuxstep/tuxstep/blob/main/ci/apple-sources.yml"><code>ci/apple-sources.yml</code></a>.</p>
 
-<p><strong>Explicitly NOT integrated:</strong> Foundation (Apple's not open), OpenDirectory (use Gershwin's dshelper), IOKit (architectural mismatch with Linux), configd / mDNSResponder (use NetworkManager / avahi), shell_cmds / text_cmds / file_cmds (coreutils + util-linux are fine).</p>
-
-<h2>The build model: upstream-direct, patches-in-repo, no forks</h2>
-
-<pre><code>tuxstep/
-├── ci/
-│   ├── apple-sources.yml         # Pin every upstream tag
-│   ├── patches/
-│   │   ├── system_cmds/
-│   │   │   ├── 001-cmake-build.patch
-│   │   │   ├── 002-disable-mach-ports.patch
-│   │   │   └── 003-install-to-system-library-tools.patch
-│   │   ├── network_cmds/
-│   │   │   └── ...
-│   │   └── launchd/
-│   │       ├── 001-cmake-build.patch
-│   │       ├── 002-disable-mach-bootstrap.patch
-│   │       └── 003-replace-kqueue-with-libkqueue.patch
-│   └── build/
-│       ├── fetch-apple-sources.sh
-│       ├── apply-patches.sh
-│       └── build-all.sh
-├── init/
-│   └── tuxstep-init.c            # Optional thin wrapper before launchd; or just exec launchd directly as PID 1
-├── System/Library/
-│   ├── LaunchDaemons/            # plist templates that ship in the ISO
-│   │   ├── com.gershwin.dshelper.plist
-│   │   ├── com.gershwin.gpbs.plist
-│   │   ├── com.openssh.sshd.plist
-│   │   └── com.tuxstep.windowserver.plist
-│   └── Scripts/
-│       └── PATH.sh               # Default PATH for the four-domain shell
-├── iso.yml                       # GitHub Actions ISO build workflow
-├── apple-sources.yml             # The pinned upstream registry
-└── README.md</code></pre>
-
-<p><code>apple-sources.yml</code>:</p>
-
-<pre><code>sources:
-  launchd:
-    repo: https://github.com/apple-oss-distributions/launchd.git
-    tag:  launchd-842.92.1
-    install_to: /sbin/init                       # PID 1
-  cctools:
-    repo: https://github.com/tpoechtrager/cctools-port.git
-    tag:  973.0.1
-    install_to: /System/Library/Tools/
-  system_cmds:
-    repo: https://github.com/apple-oss-distributions/system_cmds.git
-    tag:  system_cmds-960.0.16
-    install_to: /System/Library/Tools/
-    only: [pwd_mkdb, getty, sysctl, vipw, vifs, getconf]
-  network_cmds:
-    repo: https://github.com/apple-oss-distributions/network_cmds.git
-    tag:  network_cmds-621
-    install_to: /System/Library/Tools/
-    only: [ifconfig, route, netstat, arp, ndp]
-  file_cmds:
-    repo: https://github.com/apple-oss-distributions/file_cmds.git
-    tag:  file_cmds-NNN
-    install_to: /System/Library/Tools/
-    only: [xattr]
-gershwin:
-  repo: https://github.com/gershwin-desktop/gershwin-developer.git
-  branch: main
-  build_flag: GNUSTEP_INSTALLATION_DOMAIN=SYSTEM
-  layout:    gershwin                            # Use the Gershwin filesystem layout
-foundation:
-  skip: true
-  rationale: "GNUstep libs-base is the Foundation; built as part of gershwin-developer"</code></pre>
-
-<h2>Mach-on-Linux: deferred to v2 if needed</h2>
-
-<p>v1 is pure POSIX/socket. launchd's Mach-bootstrap subsystem becomes dead code on Linux (nothing on a Linux kernel uses Mach to look up service ports, so the bootstrap server has no clients) — patch 002 in <code>ci/patches/launchd/</code> disables it. The rest of launchd (job spawning, KeepAlive, plist parsing, socket activation) is straight POSIX.</p>
-
-<p>If a future use case demands Mach (e.g. running unmodified Apple binaries that call <code>bootstrap_look_up</code>), revisit then. Three options on the table:</p>
+<details>
+<summary>Phase 2 — standalone Mach-O CLI tools</summary>
+<div class="detail-body">
 
 <table>
-<tr><th>Option</th><th>What</th><th>Effort</th></tr>
-<tr><td>Pure POSIX (v1)</td><td>No Mach anywhere; sockets / D-Bus for IPC</td><td>Low; that's what we ship</td></tr>
-<tr><td>Extract darlingserver standalone</td><td>~7K LOC C++ Mach userspace daemon + ~754K LOC duct-tape XNU stubs as a static lib. Native ELF binaries link a thin <code>libmach.so</code></td><td>2-3 months</td></tr>
-<tr><td>Hybrid Mach for specific services</td><td>Sockets for normal IPC; minimal Mach bootstrap for compat services</td><td>1.5-2 months</td></tr>
+<tr><th>Source</th><th>Pinned tag</th><th>Binaries</th><th>Install path</th></tr>
+<tr><td><code>tpoechtrager/cctools-port</code></td><td><code>cctools-877.8-ld64-253.9-1</code></td><td>otool, lipo, install_name_tool</td><td><code>/usr/bin/</code></td></tr>
+<tr><td><code>apple-oss-distributions/network_cmds</code></td><td><code>network_cmds-741.100.2</code></td><td>ifconfig, route, arp, ndp, netstat</td><td><code>/usr/sbin/</code> (netstat → <code>/usr/bin/</code>); replaces Devuan's net-tools</td></tr>
+<tr><td><code>apple-oss-distributions/file_cmds</code></td><td><code>file_cmds-479</code></td><td>xattr</td><td><code>/usr/bin/</code></td></tr>
 </table>
 
-<h2>ISO build pipeline</h2>
+</div>
+</details>
 
-<pre><code>name: Build ISO (TuxSTEP)
-on:
-  push:
-  workflow_dispatch:
+<details>
+<summary>Phase 3 — launchd as PID 1 and launchd-managed daemons</summary>
+<div class="detail-body">
 
-jobs:
-  iso:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 120
-    steps:
-      - uses: actions/checkout@v4
+<table>
+<tr><th>Source</th><th>Pinned tag</th><th>Install</th></tr>
+<tr><td><code>apple-oss-distributions/launchd</code></td><td><code>launchd-842.92.1</code></td><td><code>/System/Library/Tools/launchd</code> + <code>/sbin/init</code> symlink for kernel PID 1</td></tr>
+<tr><td><code>apple-oss-distributions/mDNSResponder</code></td><td><code>mDNSResponder-2881.100.56.0.1</code></td><td><code>/System/Library/Tools/{mDNSResponder, dns-sd}</code>; replaces avahi-daemon</td></tr>
+</table>
 
-      - name: Install build deps
-        run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            squashfs-tools xorriso isolinux syslinux-common \
-            grub-pc-bin grub-efi-amd64-bin mtools \
-            debootstrap ca-certificates xz-utils \
-            build-essential git autoconf libtool pkg-config \
-            libxml2-dev libssl-dev libffi-dev libgmp-dev libunistring-dev \
-            libx11-dev libxext-dev libxmu-dev libxt-dev libxaw7-dev libxrandr-dev libxcursor-dev \
-            libfuse-dev libbsd-dev libdbus-1-dev libcairo2-dev libfreetype-dev \
-            libkqueue-dev
+</div>
+</details>
 
-      - name: Fetch Apple OSS sources
-        run: ./ci/build/fetch-apple-sources.sh
+<p><strong>Explicitly NOT integrated</strong> (rationale captured in the registry's <code>not_integrated:</code> section): Foundation, CoreFoundation, IOKit, OpenDirectory, configd, shell_cmds, text_cmds, file_cmds_other, system_cmds, openssh, objc4, xnu. Cocoa-API frameworks come from GNUstep on the ELF track. Apple's Foundation et al. are unreachable from Mach-O processes (cross-track rule).</p>
 
-      - name: Apply TuxSTEP patches
-        run: ./ci/build/apply-patches.sh
+<h2 id="build-model">Build model: Apple OSS upstream + Darling forks</h2>
 
-      - name: Bootstrap minimal Debian rootfs
-        run: |
-          # Note: we install Debian packages to /usr/* as normal,
-          # then layer Gershwin on top using the gershwin filesystem layout.
-          sudo debootstrap --variant=minbase \
-            --include=systemd-sysv,init,linux-image-amd64,live-boot,squashfs-tools, \
-              ca-certificates,libudev1,libbsd0,libdbus-1-3,libxml2,libcap2,libfuse2, \
-              iproute2,isc-dhcp-client,xserver-xorg-core,xinit \
-            --components=main \
-            bookworm rootfs http://deb.debian.org/debian
+<p>The registry has three relationship types:</p>
 
-      - name: Build &amp; install GNUstep + Gershwin (using the gershwin layout)
-        run: |
-          sudo git clone https://github.com/gershwin-desktop/gershwin-developer.git rootfs/Developer
-          sudo chroot rootfs /bin/bash -c "
-            cd /Developer/Library/Sources/tools-make
-            ./configure --with-layout=gershwin --prefix=/
-            make install
-            cd /Developer
-            ./Library/Scripts/Bootstrap.sh
-            make install GNUSTEP_INSTALLATION_DOMAIN=SYSTEM
-          "
-          # After this: /System/Library/Frameworks, /System/Library/Tools,
-          # /System/Library/Libraries, /System/Applications, etc. are all populated
+<table>
+<tr><th>Relationship</th><th>Meaning</th><th>Used for</th></tr>
+<tr><td><code>consume</code></td><td>Pull upstream as-is at the pinned tag</td><td>libpthread, libplatform, libdispatch — already-portable Apple sources</td></tr>
+<tr><td><code>consume_with_patches</code></td><td>Pull upstream + apply <code>ci/patches/&lt;name&gt;/*.patch</code> in numerical order</td><td>cctools, network_cmds, file_cmds, mDNSResponder, launchd</td></tr>
+<tr><td><code>forked</code></td><td>Pull from a <code>tuxstep/</code> org fork</td><td>The four Darling runtime components, plus security-shim (TuxSTEP-original)</td></tr>
+</table>
 
-      - name: Build &amp; install Apple OSS additions
-        run: ./ci/build/build-all.sh --rootfs=rootfs
+<h3>Why fork the Darling components</h3>
 
-      - name: Replace systemd as PID 1 with launchd-port
-        run: |
-          sudo install -m 0755 build/launchd rootfs/sbin/init
-          sudo cp ci/launchdaemons/*.plist rootfs/System/Library/LaunchDaemons/
-          echo "tuxstep" | sudo tee rootfs/etc/hostname
+<p>Darling has done ~10 years of work pulling Apple's open-source releases (Apple drops sources after each macOS release without active development), patching them to build on Linux (replacing Mach traps with darlingserver IPC, replacing XNU syscalls with Linux syscalls, building without Apple's xcrun), and filling gaps Apple doesn't open-source (libcorecrypto stubs forwarding to OpenSSL, etc.). Reimplementing this is a multi-year project; consuming Darling's work is the practical path.</p>
 
-      - name: Set default PATH for shells
-        run: |
-          # /System/Library/Scripts/PATH.sh sets the four-domain PATH
-          sudo cp ci/scripts/PATH.sh rootfs/System/Library/Scripts/
-          sudo tee rootfs/etc/profile.d/tuxstep-path.sh &gt;/dev/null &lt;&lt;'EOF'
-          # Sourced for all interactive shells
-          source /System/Library/Makefiles/GNUstep.sh 2&gt;/dev/null || true
-          export PATH="$HOME/Library/Tools:/Local/Library/Tools:/Network/Library/Tools:/System/Library/Tools:$PATH"
-          EOF
+<p>We fork rather than depend directly because TuxSTEP needs different framework search paths, removal of Apple-private dependencies we don't replicate, patches we don't necessarily upstream, and an independent release cadence aligned with TuxSTEP rather than Darling. Fork pinning matches Darling's monorepo submodule SHAs where applicable — known-good combinations Darling tests with.</p>
 
-      - name: Pack squashfs + write GRUB config + build ISO
-        run: |
-          sudo mkdir -p iso/live iso/boot/grub
-          sudo cp rootfs/boot/vmlinuz-* iso/live/vmlinuz
-          sudo cp rootfs/boot/initrd.img-* iso/live/initrd
-          sudo mksquashfs rootfs iso/live/filesystem.squashfs -comp xz -noappend -e boot
-          sudo tee iso/boot/grub/grub.cfg &gt;/dev/null &lt;&lt;'EOF'
-          set timeout=1
-          set default=0
-          menuentry "TuxSTEP" {
-            linux  /live/vmlinuz boot=live console=tty0 console=ttyS0,115200n8
-            initrd /live/initrd
-          }
-          EOF
-          sudo grub-mkrescue -o tuxstep.iso iso -- -volid TUXSTEP
+<table>
+<tr><th>Fork</th><th>Source</th><th>Pin</th><th>Last upstream commit</th></tr>
+<tr><td><code>tuxstep/darling-dyld</code></td><td><code>darlinghq/darling-dyld</code></td><td><code>63f667cf06d7…</code></td><td>2023-10-15</td></tr>
+<tr><td><code>tuxstep/darling-newlkm</code></td><td><code>darlinghq/darling-newlkm</code></td><td><code>353e943673a3…</code></td><td>2022-07-06 (likely deprecated; verify if needed)</td></tr>
+<tr><td><code>tuxstep/darlingserver</code></td><td><code>darlinghq/darlingserver</code></td><td><code>89751e64bc6c…</code></td><td>2025-12-06 (active)</td></tr>
+<tr><td><code>tuxstep/darling-Libsystem</code></td><td><code>darlinghq/darling-Libsystem</code></td><td><code>08df454b6eb0…</code></td><td>2023-10-05</td></tr>
+</table>
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: tuxstep-iso
-          path: tuxstep.iso</code></pre>
+<h3>security-shim</h3>
 
-<h2>Boot sequence</h2>
+<p>A TuxSTEP-original Mach-O dylib at <code>github.com/tuxstep/security-shim</code> (not yet created — first integration). Stub <code>Security.framework</code> forwarding SSL APIs (<code>SSLCreateContext</code>, <code>SSLHandshake</code>, <code>SSLRead</code>/<code>Write</code>, <code>SecTrustCreateWithCertificates</code>, <code>SecTrustEvaluate</code>) to OpenSSL. Keychain APIs return errors gracefully; codesign / notarization APIs are no-ops. Lets brew bottles using <code>SecureTransport</code> for TLS work without porting Apple's full Security.framework.</p>
 
-<ol>
-  <li><strong>GRUB</strong> → loads vmlinuz + initrd</li>
-  <li><strong>Linux kernel</strong> + live-boot initramfs → mounts squashfs as root</li>
-  <li><strong>launchd as PID 1</strong> → mounts <code>/proc</code>, <code>/sys</code>, <code>/dev</code>, <code>/dev/pts</code>, <code>/dev/shm</code>, <code>/run</code>, <code>/tmp</code></li>
-  <li><strong>launchd reads plists</strong> from <code>/System/Library/LaunchDaemons/*.plist</code> in dependency order:
-    <ul>
-      <li>Networking: <code>com.tuxstep.dhclient.plist</code></li>
-      <li>System services: <code>com.gershwin.gdomap.plist</code>, <code>com.gershwin.gdnc.plist</code>, <code>com.gershwin.gpbs.plist</code></li>
-      <li>Auth: <code>com.gershwin.dshelper.plist</code></li>
-      <li>SSH: <code>com.openssh.sshd.plist</code> (inetd-style)</li>
-      <li>Display: <code>com.tuxstep.x11.plist</code> launches X server on vt7</li>
-      <li>Window manager: <code>com.tuxstep.windowserver.plist</code> (depends on x11)</li>
-      <li>Login: <code>com.gershwin.loginwindow.plist</code> on the X display</li>
-    </ul>
-  </li>
-  <li><strong>LoginWindow</strong> waits for credentials. dshelper validates via Gershwin auth.</li>
-  <li><strong>User logs in</strong> → launchd starts user-session LaunchAgents from <code>~/Library/LaunchAgents/</code> + <code>/System/Library/LaunchAgents/</code> → Gershwin workspace (Workspace.app, Dock equivalents) starts.</li>
-</ol>
+<h2 id="bootstrap">Bootstrap order</h2>
 
-<h2>Phase 1 deliverable / MVP</h2>
+<p>Mach-O on Linux faces a chicken-and-egg: Mach-O processes need libsystem-port; libsystem-port needs darlingserver for Mach IPC; darlingserver needs to be running before any Mach-O process exec's. We solve this by making darlingserver an ELF Linux daemon (it has to be — it's the bridge between Mach-O and the Linux kernel) started by initramfs <em>before</em> PID 1.</p>
 
-<ol>
-  <li>Boot the live ISO on QEMU/x86_64.</li>
-  <li>Land on Gershwin LoginWindow on a graphical X display.</li>
-  <li>Log in as a user (auth via dshelper).</li>
-  <li>Get a Gershwin workspace with Terminal, TextEdit, SystemPreferences working.</li>
-  <li>SSH in from another machine on port 22 (Apple's openssh).</li>
-  <li>From the shell: <code>defaults</code>, <code>plutil</code>, <code>dscli</code>, <code>otool</code>, <code>lipo</code>, <code>ifconfig</code>, <code>route</code> all on PATH from <code>/System/Library/Tools/</code>.</li>
-  <li>launchd managing system + per-user services via plists.</li>
-  <li>Filesystem follows the Gershwin layout exactly: <code>/System</code>, <code>/Network</code>, <code>/Local</code> at root; users in <code>/Local/Users/&lt;name&gt;/</code>.</li>
-</ol>
+<pre><code>1. Linux kernel + initramfs starts
+2. mach-o-binfmt registers Mach-O as an executable format
+   (kernel module OR binfmt_misc + userspace mldr)
+3. initramfs starts darlingserver as ELF
+4. initramfs pivots to real root, exec()s /sbin/init
+5. /sbin/init -&gt; /System/Library/Tools/launchd (Mach-O)
+   Kernel routes through mach-o-binfmt -&gt; /usr/lib/dyld
+6. dyld loads libsystem-port; libsystem-port connects to
+   already-running darlingserver
+7. launchd starts as PID 1 with Mach IPC working from instant zero
+8. launchd reads plists, starts the rest of the system
+   (mDNSResponder, sshd, GNUstep apps, etc.)</code></pre>
 
-<h2>Effort</h2>
+<p>No chicken-and-egg because darlingserver is in initramfs, not a launchd-managed plist.</p>
+
+<h2 id="iso-pipeline">ISO build pipeline</h2>
+
+<p>The actual workflow lives at <a href="https://github.com/tuxstep/tuxstep/blob/main/.github/workflows/build.yml"><code>.github/workflows/build.yml</code></a> in the main repo. Two-stage: builds container images on every push, then builds amd64 + arm64 ISOs inside those containers. <code>needs:</code> dependency between stages avoids any race.</p>
+
+<details>
+<summary>Sketch (current as of v2.0)</summary>
+<div class="detail-body">
+
+<pre><code>1. Stage 1: build amd64 + arm64 build-environment containers, push to ghcr.
+2. Stage 2 (needs Stage 1): for each arch:
+   a. debootstrap minimal Devuan rootfs
+   b. Install Devuan packages (kernel, X11, etc.)
+   c. Clone gershwin-developer; make install GNUSTEP_INSTALLATION_DOMAIN=SYSTEM
+   d. Fetch Apple OSS sources (apple-sources.yml registry)
+   e. Apply ci/patches/&lt;name&gt;/*.patch
+   f. Build Phase 1 (Darling runtime): darling-newlkm, dyld, libsystem-port,
+      darlingserver, libpthread, libplatform, libdispatch
+   g. Build security-shim
+   h. Build Phase 2 (Apple OSS userland) Mach-O against libsystem-port:
+      cctools, network_cmds, file_cmds
+   i. Build Phase 3 (launchd-managed): launchd, mDNSResponder
+   j. Wire darlingserver into initramfs; wire /sbin/init -&gt; launchd symlink
+   k. Pack squashfs + GRUB, build hybrid BIOS+UEFI ISO (amd64) or UEFI-only (arm64)
+3. Upload to the `continuous` GitHub release tag.</code></pre>
+
+</div>
+</details>
+
+<h2 id="phases">Phases</h2>
+
+<p>Phase ordering follows the dependency chain — runtime first, then userland, then system services that depend on the runtime.</p>
 
 <table>
 <tr><th>Phase</th><th>Work</th><th>Effort</th></tr>
-<tr><td>1</td><td>Set up <code>tuxstep</code> org + repo. <code>apple-sources.yml</code> + <code>ci/patches/</code> infra. ISO that boots to a shell with GNUstep installed in the gershwin layout.</td><td>2-3 weeks</td></tr>
-<tr><td>2</td><td>Port launchd to Linux (no Mach bootstrap). Get it as PID 1 reading plists.</td><td>4-6 weeks</td></tr>
-<tr><td>3</td><td>Integrate Apple OSS additions (cctools, system_cmds subset, network_cmds, openssh) installing to <code>/System/Library/Tools</code>.</td><td>3-4 weeks</td></tr>
-<tr><td>4</td><td>X11 + Gershwin login flow end-to-end (LoginWindow → workspace → apps).</td><td>2-3 weeks</td></tr>
-<tr><td>5</td><td>Polish: pam_gershwin, default PATH, default app set, documentation.</td><td>2-3 weeks</td></tr>
-<tr><th>Total</th><th></th><th><strong>~3-4 months</strong> for v1 MVP</th></tr>
+<tr><td>1</td><td>Darling runtime layer: <code>darling-newlkm</code> (or <code>binfmt_misc</code> + mldr) for kernel-side Mach-O dispatch; <code>darling-dyld</code>, <code>darling-Libsystem</code> for userspace Mach-O loading; <code>darlingserver</code> as ELF bridge daemon. Build <code>libpthread</code>, <code>libplatform</code>, <code>libdispatch</code> as Apple-source dylibs. Verify Mach-O processes can exec at all by running a minimal test binary.</td><td>2–3 months</td></tr>
+<tr><td>2</td><td>Apple OSS standalone CLI tools (cctools, network_cmds, file_cmds) built Mach-O against libsystem-port. Each ports cleanly via <code>ci/patches/&lt;name&gt;/</code>. <code>otool -L /System/Library/Tools/launchd</code> and <code>ifconfig</code> on the test ISO are the milestones.</td><td>1–2 months</td></tr>
+<tr><td>3</td><td>launchd as PID 1 (Mach-O), with mDNSResponder as the first launchd-managed daemon. inittab gone, runlevel concept gone, everything routed through plists.</td><td>1–2 months</td></tr>
+<tr><td>4</td><td>security-shim for SSL forwarding to OpenSSL. Brew bottles using <code>SecureTransport</code> for TLS work.</td><td>1–2 months</td></tr>
+<tr><td>5</td><td>GNUstep + Gershwin desktop integration (ELF track) — already mostly works, needs testing on the dual-track system. LoginWindow, Workspace, SystemPreferences come up; X11 (xlibre) starts; user logs in.</td><td>2–3 months</td></tr>
 </table>
 
-<h2>Decisions deferred to post-MVP</h2>
+<h2 id="effort">Effort</h2>
+
+<p><strong>~9–14 months</strong> for one person, leveraging Darling's existing runtime work. The wide range reflects how much libsystem-port symbol-coverage debugging is needed when running unfamiliar Mac binaries — fundamentally an "issues-tail" problem that resolves into a long tail of small fixes.</p>
+
+<h2 id="deferred">What's deliberately deferred</h2>
 
 <ul>
-  <li><strong>v2: installable form.</strong> Live-ISO works for v1; persistent install (anaconda-style or similar) is v2.</li>
-  <li><strong>v2: package management.</strong> apt for Linux-side things; <code>.tspkg</code> for <code>/System/Library/Frameworks</code> and <code>/System/Applications</code> (a tarball + install script invoking <code>make install GNUSTEP_INSTALLATION_DOMAIN=SYSTEM</code>).</li>
-  <li><strong>v2: Mach IPC if specific use cases demand it.</strong> Default plan is to never need it.</li>
-  <li><strong>v3: arm64 support.</strong> x86_64 only for v1.</li>
-  <li><strong>v3: Apple binary compatibility.</strong> If you ever want unmodified Mac binaries, that's the corner-2 port from earlier docs (objc4 + libs-gui-against-objc4 + Mach IPC). Unrelated to TuxSTEP's core mission.</li>
-  <li><strong>License diligence for Debian-archive-eligibility.</strong> APSL 2.0's clauses may or may not pass Debian's free-software bar. Defer until v2.</li>
+<li><strong>Mac binary Foundation</strong> — Mach-O bottles linking Apple's Foundation in-process don't load (cross-track rule). Could be added later by building GNUstep a second time as Mach-O against libsystem-port. Out of scope for v1.</li>
+<li><strong>Apple's full Security.framework port</strong> — security-shim's SSL forwarding handles ~70% of brew bottles' TLS needs. Keychain, codesign, and authd-talking utilities don't work. Revisit if specific use cases surface.</li>
+<li><strong>IOKit</strong> — the equivalent on Linux is udev + sysfs + drm. Mac binaries calling IOKit (system_profiler, pmset, ioreg, diskutil, GUI hardware-introspection apps) fail. Narrow benefit for typical brew CLI workloads; months of effort.</li>
+<li><strong>arm64 / Apple Silicon support</strong> — x86_64 only for v1. arm64 has weaker upstream Darling support; defer to v2.</li>
+<li><strong>Apple binary signature validation</strong> — codesign / notarization no-ops. Acceptable for development; not for security-sensitive deployments.</li>
+<li><strong>v2: installable form</strong> — live-ISO works for v1; persistent install (anaconda-style or similar) is v2.</li>
+<li><strong>v2: package management</strong> — apt for ELF/Linux things; <code>.tspkg</code> tarball + install-script for <code>/System/Library/Frameworks</code> and <code>/System/Applications</code>.</li>
 </ul>
 
-<h2>Risks</h2>
+<h2 id="risks">Risks</h2>
 
 <table>
 <tr><th>Risk</th><th>Mitigation</th></tr>
-<tr><td>launchd port harder than estimated</td><td>Fall back to relaunchd for v1 if needed; defer real-Apple-launchd to v2.</td></tr>
-<tr><td>Gershwin's libs-base/libs-gui have rough edges that surface only when the entire stack runs together as a distro</td><td>Eat dogfood early — ship to your laptop in week 4; coordinate with Gershwin maintainers.</td></tr>
-<tr><td>Apple OSS tags drift</td><td>Pin tags conservatively; refresh patches every 6 months.</td></tr>
-<tr><td>The four-domain layout confuses users coming from FHS Linux</td><td>Document prominently. Add <code>/home → /Local/Users</code> compat symlink. Ship a "TuxSTEP for Linux users" cheat sheet.</td></tr>
-<tr><td>Project is mistaken for a Darling fork</td><td>Lead with "GNUstep-native, no emulation" in all README/marketing copy.</td></tr>
+<tr><td><code>darling-newlkm</code> may not be needed at all (last upstream commit 2022; userspace mldr + <code>binfmt_misc</code> might suffice)</td><td>Verify during Phase 1 spike. The fork exists either way as a starting point.</td></tr>
+<tr><td>Darling's <code>darling-dyld</code> and <code>darling-Libsystem</code> are stale (~2.5 years old)</td><td>Not a problem — Darling itself uses these stale versions because they work. Our fork inherits known limitations, not bleeding-edge bugs.</td></tr>
+<tr><td>Bootstrap-order subtleties (initramfs → darlingserver → launchd) may have Linux-distro-specific quirks</td><td>The build harness embeds darlingserver and the boot scripts directly so we control the sequence end-to-end.</td></tr>
+<tr><td>libsystem-port symbol-coverage gaps surface as "missing symbol" errors when running unfamiliar Mach-O binaries</td><td>Fixed lazily — when a brew bottle fails, add the missing symbol to libsystem-port, repeat. Darling has done most of this work.</td></tr>
+<tr><td>Apple OSS tags drift; Darling fork SHAs drift</td><td>Pin tags / SHAs conservatively; refresh patches every ~6 months.</td></tr>
+<tr><td>License diligence for Debian-archive eligibility</td><td>APSL 2.0 covers most Apple sources; not in Debian main. Distribute via TuxSTEP's own ISO.</td></tr>
 </table>
 
-<p style="color:#888; font-size: 0.85em; margin-top:3em;">Generated 2026-04-25 — Claude Opus 4.7 (1M context). Filesystem layout authoritative source: <code>~/gershwin-developer/Library/Sources/tools-make/FilesystemLayouts/gershwin</code>.</p>
+<p style="color:#888; font-size: 0.85em; margin-top:3em;">v2.0 — generated 2026-04-26 — Claude Opus 4.7 (1M context). Reflects the merged source registry at <code>github.com/tuxstep/tuxstep/blob/main/ci/apple-sources.yml</code>. Filesystem layout authoritative source: <code>~/gershwin-developer/Library/Sources/tools-make/FilesystemLayouts/gershwin</code>.</p>
 
 </body>
 </html>
