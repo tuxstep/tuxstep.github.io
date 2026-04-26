@@ -139,12 +139,6 @@ details > div.detail-body { padding: 4px 14px 8px; }
 └── Volumes/                             mounted external media
 </code></pre>
 
-<p>What's <em>not</em> at root: <code>/usr</code>, <code>/bin</code>, <code>/sbin</code>, <code>/lib</code>, <code>/lib64</code>, <code>/boot</code>, <code>/home</code>, <code>/Users</code>, <code>/etc</code>, <code>/var</code>, <code>/tmp</code>, <code>/dev</code>, <code>/sys</code>, <code>/proc</code>, <code>/run</code>, <code>/mnt</code>, <code>/opt</code>, <code>/private</code>. Apple's libsystem and downstream Apple-OSS components are patched at build time so their hardcoded path constants (<code>_PATH_DEVNULL</code>, <code>_PATH_PASSWD</code>, etc.) and direct path-string literals point at <code>/System/Library/Private/...</code>. Patches live per-component in <code>patches/</code> directories; the vendored Apple-OSS submodules themselves remain untouched. Build-time-only modification preserves the cheap-sync property — bumping Apple-OSS releases is still <code>git submodule update</code>; patches reapply.</p>
-
-<p>User homes (post-v0.1 multi-user support) live at <code>/Local/Users/&lt;name&gt;/</code> for interactive users and <code>/Network/Users/&lt;name&gt;/</code> for NFS-mounted users, following Gershwin's NeXT-style convention. There is no top-level <code>/Users</code>.</p>
-
-<p>The userland lives at <code>/System/Library/Tools/</code>; libraries at <code>/System/Library/Libraries/</code>. The shell's default <code>$PATH</code> is just <code>/System/Library/Tools</code>.</p>
-
 <h2 id="boot">Boot chain (v0.1)</h2>
 
 <p>The disk is laid out as two GPT partitions:</p>
