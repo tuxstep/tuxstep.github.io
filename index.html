@@ -57,7 +57,7 @@ details > div.detail-body { padding: 4px 14px 8px; }
 
 <p><strong>For existing Linux apps</strong>, <code>pkgwrap</code> turns any apt package into a self-contained <code>.app</code> bundle deployable to <code>/Local/Applications/</code>, <code>/Network/Applications/</code>, or <code>~/Applications/</code> — Linux ecosystem available on demand, none of it polluting <code>/System</code>.</p>
 
-<p><strong>The filesystem follows NeXT's four-domain model</strong> — <code>/System</code>, <code>/Network</code>, <code>/Local</code>, plus per-user homes under <code>/Local/Users/&lt;name&gt;</code>. Cocoa APIs walk the domains automatically. Deployment is drag-and-drop: copy <code>/System</code> to a volume, the volume becomes bootable.</p>
+<p><strong>The filesystem follows NeXT's four-domain model</strong> — <code>/System</code>, <code>/Network</code>, <code>/Local</code>, plus per-user homes under <code>/Local/Users/&lt;name&gt;</code> or <code>/Network/Users/&lt;name&gt;</code> (for NFS-mounted users that follow you across machines). Cocoa APIs walk the domains automatically. Deployment is drag-and-drop: copy <code>/System</code> to a volume, the volume becomes bootable.</p>
 
 <p><strong>Tux</strong> (Linux kernel) + <strong>STEP</strong> (NeXTSTEP heritage). v3.3 generated 2026-04-26. The architectural source of truth for the project lives at <a href="https://github.com/tuxstep/tuxstep/blob/main/PLAN.md"><code>tuxstep/tuxstep/PLAN.md</code></a>.</p>
 
