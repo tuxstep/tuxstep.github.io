@@ -65,7 +65,6 @@ details > div.detail-body { padding: 4px 14px 8px; }
 <h2>Contents</h2>
 <ol>
   <li><a href="#identity">Identity</a></li>
-  <li><a href="#not">What TuxSTEP is not</a></li>
   <li><a href="#architecture">Architecture</a></li>
   <li><a href="#filesystem">Filesystem layout</a></li>
   <li><a href="#boot">Boot chain</a></li>
@@ -90,20 +89,6 @@ details > div.detail-body { padding: 4px 14px 8px; }
 <tr><td>Objective-C runtime</td><td><code>libobjc2</code> (via Gershwin)</td></tr>
 <tr><td>Foundation / CoreFoundation</td><td><code>libs-base</code> + <code>libs-corebase</code> (GNUstep, via Gershwin), rebuilt against libsystem</td></tr>
 <tr><td>Filesystem layout</td><td>NeXT-style: <code>/System</code>, <code>/Network</code>, <code>/Local</code>, <code>/Volumes</code> at root. All system-internal Unix infrastructure under <code>/System/Library/</code>. No compat symlinks.</td></tr>
-</table>
-
-<h2 id="not">What TuxSTEP is not</h2>
-
-<p>The design space here is full of plausible-sounding adjacent projects. TuxSTEP rejects each of them in favor of a sharper identity:</p>
-
-<table>
-<tr><th>Not</th><th>Because</th></tr>
-<tr><td>A macOS binary runner</td><td>No <code>mldr</code>, no <code>dyld</code>, no Mach-O execution path. Brew bottles and MacPorts ports do not run unmodified.</td></tr>
-<tr><td>A Darling fork</td><td>Darling targets Mach-O ABI compatibility, which TuxSTEP doesn't pursue. We build Apple's source as ELF instead.</td></tr>
-<tr><td>A Mac OS X clone</td><td>The aesthetic is NeXT-inspired, not bug-for-bug Apple-compatible. Where Apple's behavior is bad, we don't preserve it.</td></tr>
-<tr><td>"Linux with Apple themes"</td><td>The userland is genuinely Apple-derived source code, recompiled against libsystem. Themes don't enter into it.</td></tr>
-<tr><td>A glibc-based distribution</td><td>libsystem is the system libc. glibc isn't present in v0.1 anywhere in the running system.</td></tr>
-<tr><td>A GNU/Linux distribution</td><td>No GNU coreutils, no bash (zsh), no GCC (clang), no apt. Linux kernel + Apple userland.</td></tr>
 </table>
 
 <h2 id="architecture">Architecture</h2>
