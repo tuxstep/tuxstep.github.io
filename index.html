@@ -49,11 +49,19 @@ details > div.detail-body { padding: 4px 14px 8px; }
   <img src="logo.jpg" alt="TuxSTEP — Tux atop a NeXT cube">
 </header>
 
-<h1>TuxSTEP — design document <small class="muted">v3.1</small></h1>
+<h1>TuxSTEP — design document <small class="muted">v3.2</small></h1>
 
 <p>A modern NeXT-inspired operating system distribution. Linux kernel underneath, Apple's libsystem and Darwin-derived userland on top, GNUstep frameworks (via Gershwin) for Cocoa-style application development. <strong>No glibc, no GNU userland, no Mach-O execution.</strong> A clean Darwin-on-Linux architecture.</p>
 
-<p><strong>Tux</strong> (Linux kernel) + <strong>STEP</strong> (NeXTSTEP heritage). v3.1 generated 2026-04-26 — same direction as v3.0, with the filesystem layout pushed further toward purity (everything system-internal under <code>/System/Library/</code>, no compat symlinks). The architectural source of truth for the project lives at <a href="https://github.com/tuxstep/tuxstep/blob/main/PLAN.md"><code>tuxstep/tuxstep/PLAN.md</code></a> and supersedes any earlier description in this repo.</p>
+<p>While TuxSTEP doesn't run prebuilt Mach-O binaries, its <strong>source-level compatibility with macOS is unmatched among Linux distributions</strong>. Apple's libsystem provides BSD APIs (<code>kqueue</code>, <code>kevent</code>, <code>mach_absolute_time</code>, FSEvents-style file watching) that Linux glibc lacks; Apple's headers install at <code>/System/Library/Headers/</code>; the GNUstep stack offers source-compatible Cocoa frameworks; and the filesystem layout matches macOS conventions. A macOS application's source typically compiles and runs on TuxSTEP with far fewer patches than on any other Linux system — the porting tax that normally accompanies "Linuxify this Mac code" largely disappears.</p>
+
+<p>TuxSTEP is also <strong>a real alternative to the GNU userland that has dominated Linux distributions for three decades</strong>. For all that time, "a Linux distribution" has meant Linux kernel + GNU coreutils + glibc + bash + gcc — to the point that the userland choice has become almost invisible. TuxSTEP demonstrates that the Linux kernel is genuinely permissive about what runs on top: a coherent non-GNU userland (Apple BSD coreutils + libsystem + zsh + clang + Apple/GNUstep frameworks) with its own design philosophy and aesthetic is fully viable. The kernel is the kernel; the userland is a choice, and TuxSTEP is the choice that says <em>"NeXT, not GNU."</em></p>
+
+<p>Underpinning everything is <strong>simplicity in design and implementation</strong>. Four real top-level directories instead of FHS's twenty. One libc instead of glibc plus compat shims. One bootloader. Apple source is vendored unmodified — bumping an upstream release is <code>git submodule update</code>, never a merge conflict. Per-platform code lives in a single <code>linux-glue/</code> tree per component, never sprinkled through the codebase. Deployment is drag-and-drop: copy <code>/System</code> to a volume, the volume becomes bootable. No installer scripts, no <code>/etc/fstab</code> editing, no package-manager conflicts.</p>
+
+<p>The four-domain filesystem model (System, Network, Local, per-user) inherits NeXT's multi-machine semantics with no special configuration. Site-wide content goes in <code>/Network</code>; per-machine sysadmin content in <code>/Local</code>; user content in <code>/Local/Users/&lt;name&gt;</code>. All four domains share the same structural skeleton, and Cocoa APIs (<code>NSBundle</code>, <code>NSUserDefaults</code>, the Services system) walk them automatically in the order user-overrides-most-specific-first. A site-wide policy plist in <code>/Network/Library/Preferences</code> applies to everyone on the network until a user overrides it in their home — no configuration management daemons, no policy-distribution servers, the OS just does it.</p>
+
+<p><strong>Tux</strong> (Linux kernel) + <strong>STEP</strong> (NeXTSTEP heritage). v3.2 generated 2026-04-26 — adds boot architecture, drag-and-drop deployment model, and multi-arch commitment (i386 + amd64 + arm64 from v0.1). The architectural source of truth for the project lives at <a href="https://github.com/tuxstep/tuxstep/blob/main/PLAN.md"><code>tuxstep/tuxstep/PLAN.md</code></a> and supersedes any earlier description in this repo.</p>
 
 <nav class="toc">
 <h2>Contents</h2>
@@ -162,16 +170,57 @@ details > div.detail-body { padding: 4px 14px 8px; }
 
 <h2 id="boot">Boot chain (v0.1)</h2>
 
+<p>The disk is laid out as two GPT partitions:</p>
+
+<pre><code>Disk:
+├── Partition 1: FAT32 ESP, 5 MB, hidden    (chainloader stub only — never auto-mounted)
+└── Partition 2: ext4, rest of disk
+    └── /System/...                          (entire OS)
+</code></pre>
+
+<p>Boot sequence:</p>
+
 <ol>
-  <li><strong>GRUB</strong> loads kernel + initramfs from <code>/System/Library/Kernels/&lt;kver&gt;/</code>. The grub.cfg points at the in-System path; GRUB doesn't care about the depth.</li>
-  <li><strong>Linux kernel</strong> boots. KMS drivers built into the kernel come up automatically; framebuffer console renders at native resolution. The kernel opens <code>/dev/console</code> from initramfs (initramfs is transient and may have its own conventional layout).</li>
-  <li><strong>initramfs</strong> mounts the squashfs as the new root, mounts the kernel-managed filesystems at their <code>/System/Library/Private</code> locations (<code>devtmpfs</code> at <code>/System/Library/Private/dev</code>, <code>tmpfs</code> at <code>/System/Library/Private/tmp</code>, etc.), and pivots.</li>
+  <li><strong>UEFI firmware</strong> reads partition 1 (the hidden ESP) and executes <code>\EFI\BOOT\BOOTX64.EFI</code> (or <code>BOOTAA64.EFI</code> on arm64, <code>BOOTIA32.EFI</code> on UEFI i386). This is a thin <code>tuxstep/grub</code> stub (~1-3 MB) that knows how to read ext4. On legacy BIOS, GRUB stage 1 loads from MBR and stage 1.5 from the BIOS-boot region instead.</li>
+  <li><strong>Stub bootloader</strong> reads its config (which references partition 2 by UUID) and executes <code>/System/Library/Boot/kernel.efi</code>.</li>
+  <li><strong>Linux kernel</strong> (built with <code>CONFIG_EFI_STUB=y</code>, so the kernel image <em>is</em> an EFI binary) boots from there. KMS drivers built into the kernel come up automatically; framebuffer console renders at native resolution.</li>
+  <li><strong>initramfs</strong> mounts the squashfs/ext4 root, mounts the kernel-managed filesystems at their <code>/System/Library/Private</code> locations (devtmpfs, tmpfs for /tmp, etc.), and pivots.</li>
   <li><strong>PID 1 = <code>/System/Library/Tools/zsh</code></strong> directly. No init system, no service supervisor, no auth chain. The user is at a <code>#</code> prompt as root on TTY1.</li>
 </ol>
 
-<p><code>CONFIG_DEVTMPFS_MOUNT=n</code> in the kernel config — we mount devtmpfs at the deep path explicitly rather than letting the kernel auto-mount at <code>/dev</code>. There is no <code>/dev</code> directory at the squashfs root.</p>
+<p>The 5 MB FAT32 ESP is <strong>hidden</strong> by partition flags and never appears in <code>ls /</code>, <code>mount</code>, or <code>df</code> output — it's plumbing required by UEFI firmware, not part of the running system. After initial setup, kernel updates only write to <code>/System/Library/Boot/</code> on the ext4 partition; the ESP itself is touched once at install and never again.</p>
+
+<p>The bootloader is <code>tuxstep/grub</code>, a fork of upstream GNU GRUB. We fork to add TuxSTEP-specific UX: silent boot by default, Mac-style boot-key shortcuts (cmd-V for verbose boot, cmd-S for single-user mode, option/alt to pick boot volume, shift for safe boot, <code>C</code> to boot from CD), and a TuxSTEP-styled boot screen. GRUB chosen as the only mainstream bootloader covering BIOS i386/amd64 and UEFI i386/amd64/arm64 from a single codebase.</p>
 
 <p>v0.1 is intentionally minimal. <code>launchd</code>, <code>darlingserver</code>, login chain, getty, hot-plug, Mach IPC, and the GUI stack are all post-v0.1 work. The single-user-shell milestone proves the architecture without committing to subsystems whose design isn't yet locked.</p>
+
+<h3 id="dragdrop">Drag-and-drop deployment</h3>
+
+<p>TuxSTEP's deployment model is classic-Mac: <strong><code>/System</code> is the OS. Drag it to a volume, the volume becomes bootable.</strong></p>
+
+<p>An <strong>auto-bless daemon</strong> (post-v0.1, launchd-managed) watches mounted volumes for <code>/System/Library/Boot/kernel.efi</code> being written. When detected, it silently performs whatever partition surgery is needed to make the volume bootable:</p>
+
+<ul>
+  <li>If the volume already has an ESP, just updates the bootloader config inside it. Non-destructive, no partition table changes.</li>
+  <li>If the volume has no ESP but has free space at the start, reorganizes the partition table to declare an ESP region and installs the GRUB chainloader. Non-destructive of data.</li>
+  <li>If the volume needs ext4 shrinking to make room, runs <code>resize2fs</code> on the unmounted partition. Non-destructive of data; takes seconds on near-empty disks.</li>
+  <li>If the volume is 100% full and can't be shrunk, logs a notice and stops. The user's data is preserved; the disk just doesn't auto-bless.</li>
+</ul>
+
+<p>Two user-explicit commands accompany the daemon:</p>
+
+<ul>
+  <li><code>newfs &lt;disk&gt;</code> — convenience tool to format a disk for TuxSTEP (creates the layout: 5 MB hidden ESP + ext4, pre-installs the chainloader). Destructive of any existing data on the disk, like any format command.</li>
+  <li><code>bless &lt;volume&gt;</code> — same logic as the auto-bless daemon, but invoked manually for users who want explicit control.</li>
+</ul>
+
+<p>The user-visible workflow is just:</p>
+
+<pre><code>$ cp -aR /System /Volumes/NewDisk/    # this is the only command the user ever needs
+$                                     # disk is now bootable
+</code></pre>
+
+<p>No format step required (auto-bless handles partition surgery on the fly). No bless command required (auto-bless does it). Like classic Mac: drag the System Folder, the disk is ready. The same workflow applies on i386, amd64, and arm64 — bless detects the firmware mode and adapts (UEFI gets a hidden ESP; BIOS gets MBR + BIOS-boot region).</p>
 
 <h2 id="components">Component map</h2>
 
@@ -186,7 +235,7 @@ details > div.detail-body { padding: 4px 14px 8px; }
 <tr><td>clang / lld / LLVM tools</td><td><code>llvm-project</code></td><td>Cross-build against libsystem; install at <code>/System/Library/Tools/{cc, ld, ar, ...}</code></td></tr>
 <tr><td>Apple system headers</td><td>apple-oss-distributions xnu, Libc, etc.</td><td>Install at <code>/System/Library/Headers/</code></td></tr>
 <tr><td>libobjc2, libdispatch, tools-make, libs-base, libs-corebase</td><td>GNUstep / Gershwin</td><td>Patch + rebuild against libsystem; install at <code>/System/Library/Libraries/</code> and <code>/System/Library/Makefiles/</code></td></tr>
-<tr><td>Bootloader</td><td>GRUB upstream</td><td>Use stock; v0.1 only — pre-userland anyway</td></tr>
+<tr><td>Bootloader</td><td>GRUB upstream</td><td>Fork as <code>tuxstep/grub</code>: silent boot default, Mac-style boot keys (cmd-V, cmd-S, option, etc.), TuxSTEP-styled boot screen. Per-arch builds (grub-pc, grub-efi-ia32, grub-efi-amd64, grub-efi-arm64) shipped on every TuxSTEP ISO.</td></tr>
 </table>
 
 <p>Apple-derived source is vendored as git submodules and never edited in place. Each component repository keeps Apple's source as a submodule alongside two parallel directories that <em>are</em> TuxSTEP's own: <code>linux-glue/</code> for kernel-specific code (syscall translation, struct adapters, signal/errno remapping) and <code>patches/</code> for build-time patches that rewrite hardcoded path constants (<code>_PATH_DEVNULL</code> and friends, plus direct path-string literals) so they target <code>/System/Library/Private/...</code>. Syncing is <code>git submodule update --remote</code>; patches are reapplied at the next build.</p>
@@ -202,14 +251,16 @@ details > div.detail-body { padding: 4px 14px 8px; }
 <tr><td>2</td><td>Apple BSD coreutils + zsh ported to libsystem; installed at <code>/System/Library/Tools/</code></td><td>3–4 months</td></tr>
 <tr><td>3</td><td>Filesystem tooling: <code>mount</code>, <code>umount</code>, <code>fsck.ext4</code> — minimal subset for ISO</td><td>2–3 weeks</td></tr>
 <tr><td>4</td><td>Gershwin stack rebuilt against libsystem (libobjc2, libdispatch, tools-make, libs-base, libs-corebase)</td><td>1–2 months</td></tr>
-<tr><td>5</td><td>Kernel config + initramfs + ISO assembly + GRUB; amd64 + arm64 ISOs in CI</td><td>1–2 months</td></tr>
+<tr><td>5</td><td>Kernel config + initramfs + ISO assembly with chainloader-on-hidden-ESP layout; <code>tuxstep/grub</code> fork; <strong>i386 + amd64 + arm64</strong> ISOs in CI</td><td>1–2 months</td></tr>
 </table>
 
 <p>Phases 0–2 are the long poles. Phases 3–5 fall out quickly once libsystem and the toolchain are stable.</p>
 
+<p>Post-v0.1 phases (informational, not part of v0.1 timeline): Phase 6 ships <code>newfs</code>, <code>bless</code>, and the auto-bless daemon for the drag-and-drop deployment model. Phase 7 ports launchd as PID 1. Phase 8 brings darlingserver back for Mach IPC. Phase 9 rebuilds the GUI stack (libs-gui, libs-back, libs-opal, libs-quartzcore) against libsystem.</p>
+
 <h2 id="demo">v0.1 demo</h2>
 
-<p>The deliverable is a bootable ISO (amd64 + arm64). After GRUB loads the kernel and the squashfs mounts, the user lands at a <code>#</code> prompt at TTY1, no glibc anywhere on the system. From the shell:</p>
+<p>The deliverable is <strong>three bootable ISOs</strong> — one each for i386, amd64, and arm64. CI gates green on all three before v0.1 is declared shipping. After GRUB loads the kernel and the squashfs mounts, the user lands at a <code>#</code> prompt at TTY1, no glibc anywhere on the system. From the shell:</p>
 
 <pre><code># uname -a
 Linux tuxstep 6.16.0-tuxstep-amd64 #1 SMP ... x86_64
@@ -240,7 +291,7 @@ EOF
 2026-XX-XX HH:MM:SS.fff Hello from TuxSTEP v0.1
 </code></pre>
 
-<p>That's the v0.1 milestone. A complete demonstrable Linux kernel + Darwin userland + GNUstep stack on libsystem, end to end, ELF, no glibc, four real top-level directories with no compat symlinks. <code>ls /</code> shows exactly the system's identity.</p>
+<p>That's the v0.1 milestone. Three bootable ISOs (i386, amd64, arm64), each demonstrating: Linux kernel + Apple libsystem + Apple BSD userland + Gershwin runtime stack + Obj-C compilation, end to end, ELF, no glibc, four real top-level directories with no compat symlinks. <code>ls /</code> shows exactly the system's identity.</p>
 
 <h2 id="sync">Staying synced with Apple</h2>
 
@@ -292,7 +343,7 @@ EOF
 
 <p>The chosen architecture — Linux kernel + libsystem ELF userland + GNUstep stack on libsystem — is the simplest design that satisfies the project's actual goals (NeXT-inspired, Apple-flavored, modern, maintainable, arm64-clean) without inheriting compatibility burdens it doesn't need.</p>
 
-<p style="color:#888; font-size: 0.85em; margin-top:3em;">v3.1 — generated 2026-04-26 — same direction as v3.0, with the filesystem layout pushed to maximum purity (everything system-internal under <code>/System/Library/</code>, no compat symlinks). Architectural source of truth: <a href="https://github.com/tuxstep/tuxstep/blob/main/PLAN.md"><code>github.com/tuxstep/tuxstep/blob/main/PLAN.md</code></a>.</p>
+<p style="color:#888; font-size: 0.85em; margin-top:3em;">v3.2 — generated 2026-04-26 — adds boot architecture (hidden FAT32 ESP + <code>tuxstep/grub</code> chainloader + EFI-stub kernel), drag-and-drop deployment model (auto-bless daemon, classic-Mac semantics), and multi-arch commitment (i386 + amd64 + arm64 from v0.1). Architectural source of truth: <a href="https://github.com/tuxstep/tuxstep/blob/main/PLAN.md"><code>github.com/tuxstep/tuxstep/blob/main/PLAN.md</code></a>.</p>
 
 </body>
 </html>
