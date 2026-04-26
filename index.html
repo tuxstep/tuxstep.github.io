@@ -134,7 +134,7 @@ details > div.detail-body { padding: 4px 14px 8px; }
 └── Volumes/                             mounted external media
 </code></pre>
 
-<h2 id="boot">Boot chain (v0.1)</h2>
+<h2 id="boot">Boot chain</h2>
 
 <p>The disk is laid out as two GPT partitions:</p>
 
@@ -146,7 +146,7 @@ details > div.detail-body { padding: 4px 14px 8px; }
 
 <h3 id="dragdrop">Drag-and-drop deployment</h3>
 
-<p>TuxSTEP's deployment model is classic-Mac: <strong><code>/System</code> is the OS. Drag it to a volume, the volume becomes bootable.</strong></p>
+<p>TuxSTEP's deployment model is classic-Mac: <strong><code>/System</code> is the OS. Drag it to a volume — the copy automatically runs <code>bless</code> on the destination, which installs the bootloader to the ESP and marks the volume bootable.</strong></p>
 
 <h2 id="components">Component map</h2>
 
