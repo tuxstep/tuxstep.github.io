@@ -71,7 +71,6 @@ details > div.detail-body { padding: 4px 14px 8px; }
   <li><a href="#boot">Boot chain</a></li>
   <li><a href="#components">Component map</a></li>
   <li><a href="#phases">Phase plan to v0.1</a></li>
-  <li><a href="#compat">Linux compatibility (pkgwrap)</a></li>
   <li><a href="#demo">v0.1 demo</a></li>
   <li><a href="#sync">Staying synced with Apple</a></li>
   <li><a href="#deferred">Deferred to post-v0.1</a></li>
@@ -256,21 +255,6 @@ $                                     # disk is now bootable
 <p>Phases 0–2 are the long poles. Phases 3–5 fall out quickly once libsystem and the toolchain are stable.</p>
 
 <p>Post-v0.1 phases (informational, not part of v0.1 timeline): Phase 6 ships <code>newfs</code>, <code>bless</code>, and the auto-bless daemon for the drag-and-drop deployment model. Phase 7 ports launchd as PID 1. Phase 8 brings darlingserver back for Mach IPC. Phase 9 rebuilds the GUI stack (libs-gui, libs-back, libs-opal, libs-quartzcore) against libsystem.</p>
-
-<h2 id="compat">Linux compatibility — <code>pkgwrap</code></h2>
-
-<p><code>pkgwrap</code> (from Gershwin) packages a glibc Linux app and its full dependency closure into a self-contained <code>.app</code> bundle under <code>/Local/Applications/</code>. A tiny libsystem-linked launcher inside the bundle exec's the binary through the bundle's own <code>ld-linux</code>, so the Linux process finds all its deps locally and never touches <code>/System</code>.</p>
-
-<pre><code>/Local/Applications/Firefox.app/
-├── Contents/
-│   ├── Info.plist
-│   ├── MacOS/Firefox             libsystem-linked launcher (~5 KB)
-│   └── Linux/
-│       ├── bin/firefox           the ELF Linux binary
-│       └── lib/                  bundled glibc + dependency closure
-</code></pre>
-
-<p>The Debian/Ubuntu ecosystem becomes available on demand, fully isolated under <code>/Local/Applications/</code>. Bundles install/remove via drag-and-drop. No package-manager conflicts.</p>
 
 <h2 id="demo">v0.1 demo</h2>
 
