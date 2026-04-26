@@ -49,11 +49,11 @@ details > div.detail-body { padding: 4px 14px 8px; }
   <img src="logo.jpg" alt="TuxSTEP — Tux atop a NeXT cube">
 </header>
 
-<h1>TuxSTEP — design document <small class="muted">v3.0</small></h1>
+<h1>TuxSTEP — design document <small class="muted">v3.1</small></h1>
 
 <p>A modern NeXT-inspired operating system distribution. Linux kernel underneath, Apple's libsystem and Darwin-derived userland on top, GNUstep frameworks (via Gershwin) for Cocoa-style application development. <strong>No glibc, no GNU userland, no Mach-O execution.</strong> A clean Darwin-on-Linux architecture.</p>
 
-<p><strong>Tux</strong> (Linux kernel) + <strong>STEP</strong> (NeXTSTEP heritage). v3.0 generated 2026-04-26. The architectural source of truth for the project lives at <a href="https://github.com/tuxstep/tuxstep/blob/main/PLAN.md"><code>tuxstep/tuxstep/PLAN.md</code></a> and supersedes any earlier description in this repo.</p>
+<p><strong>Tux</strong> (Linux kernel) + <strong>STEP</strong> (NeXTSTEP heritage). v3.1 generated 2026-04-26 — same direction as v3.0, with the filesystem layout pushed further toward purity (everything system-internal under <code>/System/Library/</code>, no compat symlinks). The architectural source of truth for the project lives at <a href="https://github.com/tuxstep/tuxstep/blob/main/PLAN.md"><code>tuxstep/tuxstep/PLAN.md</code></a> and supersedes any earlier description in this repo.</p>
 
 <nav class="toc">
 <h2>Contents</h2>
@@ -83,7 +83,7 @@ details > div.detail-body { padding: 4px 14px 8px; }
 <tr><td>Coreutils / shell</td><td>Apple's BSD-derived utilities (file_cmds, shell_cmds, system_cmds, network_cmds, text_cmds) + zsh, all libsystem-linked</td></tr>
 <tr><td>Objective-C runtime</td><td><code>libobjc2</code> (via Gershwin)</td></tr>
 <tr><td>Foundation / CoreFoundation</td><td><code>libs-base</code> + <code>libs-corebase</code> (GNUstep, via Gershwin), rebuilt against libsystem</td></tr>
-<tr><td>Filesystem layout</td><td>NeXT-style: <code>/System</code>, <code>/Network</code>, <code>/Local</code>, <code>/Users</code></td></tr>
+<tr><td>Filesystem layout</td><td>NeXT-style: <code>/System</code>, <code>/Network</code>, <code>/Local</code>, <code>/Volumes</code> at root. All system-internal Unix infrastructure under <code>/System/Library/</code>. No compat symlinks.</td></tr>
 </table>
 
 <h2 id="not">What TuxSTEP is not</h2>
@@ -128,43 +128,48 @@ details > div.detail-body { padding: 4px 14px 8px; }
 
 <h2 id="filesystem">Filesystem layout</h2>
 
-<p>Gershwin's NeXT-style four-domain layout, with libsystem and tooling installed at standard paths within those domains.</p>
+<p>Four real directories at root. No symlinks. Everything system-internal lives under <code>/System/Library/</code>. More pure than NeXTSTEP itself was.</p>
 
-<pre><code>/                                     ISO root
+<pre><code>/                                       ISO root
 │
-├── boot/                              kernel image, initramfs (read by GRUB)
-├── lib/
-│   ├── modules/&lt;kver&gt;/                kernel modules (mostly empty in v0.1)
-│   └── firmware/                      linux-firmware blobs
+├── System/                              the entire OS
+│   └── Library/
+│       ├── Kernels/&lt;kver&gt;/              kernel image, initramfs
+│       ├── Firmware/                    firmware blobs
+│       ├── Modules/&lt;kver&gt;/              kernel modules (post-v0.1; empty in v0.1)
+│       ├── Libraries/                   libSystem.so, libobjc2.so, libdispatch.so,
+│       │                                libgnustep-base.so, libgnustep-corebase.so
+│       ├── Headers/                     Apple + GNUstep headers
+│       ├── Tools/                       Apple BSD coreutils, zsh, cc, ld, ar, ...
+│       ├── Makefiles/                   gnustep-make
+│       └── Private/                     system-internal Unix infrastructure
+│           ├── etc/                     passwd, hosts, fstab, ...
+│           ├── var/                     logs, state, spool
+│           ├── tmp/                     temp files (tmpfs at runtime)
+│           ├── dev/                     devtmpfs mount point
+│           └── sys/                     sysfs mount point (post-v0.1)
 │
-├── System/                            distro-shipped components, read-only
-│   ├── Library/
-│   │   ├── Libraries/                 libSystem.so, libobjc2.so, libdispatch.so,
-│   │   │                              libgnustep-base.so, libgnustep-corebase.so
-│   │   ├── Headers/                   Apple + GNUstep headers
-│   │   ├── Tools/                     Apple BSD coreutils, zsh, cc, ld, ar, ...
-│   │   └── Makefiles/                 gnustep-make
-│   └── Applications/                  empty in v0.1
-│
-├── Network/                           NFS-mounted site content (empty in v0.1)
-├── Local/                             per-machine sysadmin installs (empty in v0.1)
-├── Users/                             user homes (empty in v0.1)
-│
-└── dev /proc /sys /tmp /var /etc      kernel-managed runtime + minimal config
+├── Network/                             site-wide / NFS-mounted (empty in v0.1)
+├── Local/                               per-machine sysadmin (empty in v0.1)
+└── Volumes/                             mounted external media
 </code></pre>
 
-<p>No <code>/usr</code>, no <code>/bin</code>, no <code>/sbin</code>. The userland lives at <code>/System/Library/Tools/</code>; libraries at <code>/System/Library/Libraries/</code>. The shell's default <code>$PATH</code> is just <code>/System/Library/Tools</code>.</p>
+<p>What's <em>not</em> at root: <code>/usr</code>, <code>/bin</code>, <code>/sbin</code>, <code>/lib</code>, <code>/lib64</code>, <code>/boot</code>, <code>/home</code>, <code>/Users</code>, <code>/etc</code>, <code>/var</code>, <code>/tmp</code>, <code>/dev</code>, <code>/sys</code>, <code>/proc</code>, <code>/run</code>, <code>/mnt</code>, <code>/opt</code>, <code>/private</code>. Apple's libsystem and downstream Apple-OSS components are patched at build time so their hardcoded path constants (<code>_PATH_DEVNULL</code>, <code>_PATH_PASSWD</code>, etc.) and direct path-string literals point at <code>/System/Library/Private/...</code>. Patches live per-component in <code>patches/</code> directories; the vendored Apple-OSS submodules themselves remain untouched. Build-time-only modification preserves the cheap-sync property — bumping Apple-OSS releases is still <code>git submodule update</code>; patches reapply.</p>
 
-<p>Future per-domain expansion (post-v0.1) follows the standard NeXT/Gershwin convention: <code>/Local/Users/&lt;name&gt;/</code> for interactive users, <code>/Network/Library/...</code> for site-wide content, etc. v0.1 ships these as empty directories.</p>
+<p>User homes (post-v0.1 multi-user support) live at <code>/Local/Users/&lt;name&gt;/</code> for interactive users and <code>/Network/Users/&lt;name&gt;/</code> for NFS-mounted users, following Gershwin's NeXT-style convention. There is no top-level <code>/Users</code>.</p>
+
+<p>The userland lives at <code>/System/Library/Tools/</code>; libraries at <code>/System/Library/Libraries/</code>. The shell's default <code>$PATH</code> is just <code>/System/Library/Tools</code>.</p>
 
 <h2 id="boot">Boot chain (v0.1)</h2>
 
 <ol>
-  <li><strong>GRUB</strong> loads kernel + initramfs from <code>/boot</code>.</li>
-  <li><strong>Linux kernel</strong> boots. KMS drivers built into the kernel come up; devtmpfs auto-mounts via <code>CONFIG_DEVTMPFS_MOUNT=y</code>; framebuffer console renders at native resolution.</li>
-  <li><strong>initramfs</strong> (small, transient) mounts the squashfs as the new root and pivots.</li>
+  <li><strong>GRUB</strong> loads kernel + initramfs from <code>/System/Library/Kernels/&lt;kver&gt;/</code>. The grub.cfg points at the in-System path; GRUB doesn't care about the depth.</li>
+  <li><strong>Linux kernel</strong> boots. KMS drivers built into the kernel come up automatically; framebuffer console renders at native resolution. The kernel opens <code>/dev/console</code> from initramfs (initramfs is transient and may have its own conventional layout).</li>
+  <li><strong>initramfs</strong> mounts the squashfs as the new root, mounts the kernel-managed filesystems at their <code>/System/Library/Private</code> locations (<code>devtmpfs</code> at <code>/System/Library/Private/dev</code>, <code>tmpfs</code> at <code>/System/Library/Private/tmp</code>, etc.), and pivots.</li>
   <li><strong>PID 1 = <code>/System/Library/Tools/zsh</code></strong> directly. No init system, no service supervisor, no auth chain. The user is at a <code>#</code> prompt as root on TTY1.</li>
 </ol>
+
+<p><code>CONFIG_DEVTMPFS_MOUNT=n</code> in the kernel config — we mount devtmpfs at the deep path explicitly rather than letting the kernel auto-mount at <code>/dev</code>. There is no <code>/dev</code> directory at the squashfs root.</p>
 
 <p>v0.1 is intentionally minimal. <code>launchd</code>, <code>darlingserver</code>, login chain, getty, hot-plug, Mach IPC, and the GUI stack are all post-v0.1 work. The single-user-shell milestone proves the architecture without committing to subsystems whose design isn't yet locked.</p>
 
@@ -184,7 +189,7 @@ details > div.detail-body { padding: 4px 14px 8px; }
 <tr><td>Bootloader</td><td>GRUB upstream</td><td>Use stock; v0.1 only — pre-userland anyway</td></tr>
 </table>
 
-<p>Apple-derived source is never modified directly. Each component repository keeps Apple's source as a git submodule and adds a parallel <code>linux-glue/</code> directory containing only TuxSTEP-authored code. Syncing with Apple's open-source releases is <code>git submodule update --remote</code>.</p>
+<p>Apple-derived source is vendored as git submodules and never edited in place. Each component repository keeps Apple's source as a submodule alongside two parallel directories that <em>are</em> TuxSTEP's own: <code>linux-glue/</code> for kernel-specific code (syscall translation, struct adapters, signal/errno remapping) and <code>patches/</code> for build-time patches that rewrite hardcoded path constants (<code>_PATH_DEVNULL</code> and friends, plus direct path-string literals) so they target <code>/System/Library/Private/...</code>. Syncing is <code>git submodule update --remote</code>; patches are reapplied at the next build.</p>
 
 <h2 id="phases">Phase plan to v0.1</h2>
 
@@ -213,13 +218,13 @@ Linux tuxstep 6.16.0-tuxstep-amd64 #1 SMP ... x86_64
         /System/Library/Libraries/libSystem.so (0x...)
 
 # ls /
-System  Local  Network  Users  boot  dev  etc  lib  proc  sys  tmp  var
+Local  Network  System  Volumes
 
 # ls /System/Library/Libraries/
 libdispatch.so       libgnustep-base.so       libobjc2.so       libSystem.so
 libgnustep-corebase.so
 
-# cat &gt; /tmp/hello.m &lt;&lt;EOF
+# cat &gt; /System/Library/Private/tmp/hello.m &lt;&lt;EOF
 #import &lt;Foundation/Foundation.h&gt;
 int main(void) {
     @autoreleasepool {
@@ -229,26 +234,30 @@ int main(void) {
 EOF
 
 # /System/Library/Tools/cc -ObjC -lSystem -lobjc2 -ldispatch -lgnustep-base \
-        /tmp/hello.m -o /tmp/hello
-# /tmp/hello
+        /System/Library/Private/tmp/hello.m \
+        -o /System/Library/Private/tmp/hello
+# /System/Library/Private/tmp/hello
 2026-XX-XX HH:MM:SS.fff Hello from TuxSTEP v0.1
 </code></pre>
 
-<p>That's the v0.1 milestone. A complete demonstrable Linux kernel + Darwin userland + GNUstep stack on libsystem, end to end, ELF, no glibc.</p>
+<p>That's the v0.1 milestone. A complete demonstrable Linux kernel + Darwin userland + GNUstep stack on libsystem, end to end, ELF, no glibc, four real top-level directories with no compat symlinks. <code>ls /</code> shows exactly the system's identity.</p>
 
 <h2 id="sync">Staying synced with Apple</h2>
 
 <p>The architecture is deliberately designed to make tracking Apple's open-source releases inexpensive and predictable.</p>
 
 <ul>
-  <li><strong>Apple source is never modified.</strong> Patches against apple-oss would create merge conflicts on every upstream release. We avoid this by keeping all Linux-specific code in parallel <code>linux-glue/</code> directories and treating Apple's source as a read-only submodule.</li>
+  <li><strong>Apple source is vendored as submodules and never edited in place.</strong> Submodule working trees can be wiped and re-pulled at any time without losing state.</li>
+  <li><strong>Linux-specific code lives in parallel <code>linux-glue/</code> directories.</strong> Adding kernel-specific behavior never touches Apple source.</li>
+  <li><strong>Path-rewriting patches live in a separate <code>patches/</code> series</strong> applied at build time after <code>git submodule update</code>. They rewrite hardcoded path constants (<code>_PATH_*</code> macros, plus direct <code>"/etc/foo"</code> string literals) to target <code>/System/Library/Private/...</code>. The set is small and stable; Apple seldom changes path constants.</li>
   <li><strong>Submodules pinned to specific Apple OSS release tags.</strong> Bumping is <code>git submodule update --remote</code>, not a merge.</li>
   <li><strong>Syscall stubs generated from a table.</strong> Adding a new Apple syscall means adding one line to <code>syscall_table.txt</code>; no new hand-written code.</li>
+  <li><strong>An <code>audit_paths.sh</code> script enumerates direct path literals</strong> in newly-vendored Apple source so the patch series can be extended mechanically.</li>
   <li><strong>Pin to yearly Apple OSS releases, not tip.</strong> Apple ships tagged source drops with each macOS major; we track those, not the upstream development branches.</li>
   <li><strong>CI watches upstream.</strong> A weekly build against the latest Apple OSS tag detects breakage early without forcing immediate action.</li>
 </ul>
 
-<p>Estimated ongoing sync work after the initial port: 1–3 days per Apple OSS release.</p>
+<p>Estimated ongoing sync work after the initial port: 1–3 days per Apple OSS release. Most bumps require zero changes to the patch series; occasional bumps add 1–3 patches if Apple introduced new hardcoded paths.</p>
 
 <h2 id="deferred">Deferred to post-v0.1</h2>
 
@@ -257,7 +266,7 @@ EOF
 <ul>
   <li><strong>launchd as PID 1</strong> (replaces shell-as-PID-1). Multi-user, service supervision, plist-based service definitions.</li>
   <li><strong>Mach IPC</strong> — <code>libsimple_darlingserver.so</code> as ELF, <code>darlingserver</code> as a system daemon. Enables <code>NSXPCConnection</code>-style IPC and any code path that depends on Mach ports.</li>
-  <li><strong>Login chain</strong> — Apple's <code>login</code>, <code>getty</code>, auth subsystem. Multi-user system with <code>/Users/&lt;name&gt;</code>.</li>
+  <li><strong>Login chain</strong> — Apple's <code>login</code>, <code>getty</code>, auth subsystem. Multi-user system with home directories under <code>/Local/Users/&lt;name&gt;</code>.</li>
   <li><strong>Hot-plug + modular kernel</strong> — <code>tuxstep-uevent</code>, <code>tuxstep-modload</code>; ship more of the kernel as modules; USB devices auto-detect.</li>
   <li><strong>Networking</strong> — DHCP client, configd, wifi support (wpa_supplicant or alternative).</li>
   <li><strong>Package management</strong> — port apple-oss <code>pkgutil</code> + <code>installer</code>.</li>
@@ -283,7 +292,7 @@ EOF
 
 <p>The chosen architecture — Linux kernel + libsystem ELF userland + GNUstep stack on libsystem — is the simplest design that satisfies the project's actual goals (NeXT-inspired, Apple-flavored, modern, maintainable, arm64-clean) without inheriting compatibility burdens it doesn't need.</p>
 
-<p style="color:#888; font-size: 0.85em; margin-top:3em;">v3.0 — generated 2026-04-26 — supersedes v2.0's dual-track ELF + Mach-O direction. Architectural source of truth: <a href="https://github.com/tuxstep/tuxstep/blob/main/PLAN.md"><code>github.com/tuxstep/tuxstep/blob/main/PLAN.md</code></a>.</p>
+<p style="color:#888; font-size: 0.85em; margin-top:3em;">v3.1 — generated 2026-04-26 — same direction as v3.0, with the filesystem layout pushed to maximum purity (everything system-internal under <code>/System/Library/</code>, no compat symlinks). Architectural source of truth: <a href="https://github.com/tuxstep/tuxstep/blob/main/PLAN.md"><code>github.com/tuxstep/tuxstep/blob/main/PLAN.md</code></a>.</p>
 
 </body>
 </html>
