@@ -73,6 +73,7 @@ details > div.detail-body { padding: 4px 14px 8px; }
   <li><a href="#boot">Boot chain</a></li>
   <li><a href="#components">Component map</a></li>
   <li><a href="#phases">Phase plan to v0.1</a></li>
+  <li><a href="#compat">Linux compatibility (pkgwrap)</a></li>
   <li><a href="#demo">v0.1 demo</a></li>
   <li><a href="#sync">Staying synced with Apple</a></li>
   <li><a href="#deferred">Deferred to post-v0.1</a></li>
@@ -257,6 +258,51 @@ $                                     # disk is now bootable
 <p>Phases 0–2 are the long poles. Phases 3–5 fall out quickly once libsystem and the toolchain are stable.</p>
 
 <p>Post-v0.1 phases (informational, not part of v0.1 timeline): Phase 6 ships <code>newfs</code>, <code>bless</code>, and the auto-bless daemon for the drag-and-drop deployment model. Phase 7 ports launchd as PID 1. Phase 8 brings darlingserver back for Mach IPC. Phase 9 rebuilds the GUI stack (libs-gui, libs-back, libs-opal, libs-quartzcore) against libsystem.</p>
+
+<h2 id="compat">Linux compatibility — <code>pkgwrap</code> self-contained bundles</h2>
+
+<p>TuxSTEP makes a deliberate, radical break from the GNU userland — but the existing Linux application ecosystem still exists, and TuxSTEP needs a credible answer for "how do I run Firefox / VS Code / Steam / GIMP on this system?" without compromising the clean libsystem-only <code>/System</code> layout. The answer is <strong><code>pkgwrap</code></strong>: a tool that packages a Linux glibc binary plus its full dependency closure into a self-contained <code>.app</code> bundle under <code>/Local/Applications/</code>.</p>
+
+<details>
+<summary>Bundle layout</summary>
+<div class="detail-body">
+<pre><code>/Local/Applications/Firefox.app/
+├── Contents/
+│   ├── Info.plist                 NSBundle metadata
+│   ├── MacOS/
+│   │   └── Firefox                libsystem-linked launcher (~5 KB)
+│   ├── Resources/                 icons, localizations
+│   └── Linux/                     foreign-arch stuff lives here
+│       ├── bin/firefox            the actual ELF Linux binary
+│       └── lib/                   bundled glibc + dependency closure
+│           ├── ld-linux-x86-64.so.2
+│           ├── libc.so.6
+│           ├── libstdc++.so.6
+│           ├── libGL.so.1
+│           ├── libX11.so.6
+│           └── ... ~50-200 .so files depending on app complexity
+</code></pre>
+</div>
+</details>
+
+<p><strong>How execution works:</strong> the launcher (<code>Contents/MacOS/Firefox</code>) is a libsystem-linked process. When invoked, it directly exec's the bundle's own <code>ld-linux-x86-64.so.2</code> with <code>--library-path</code> pointing at the bundle's <code>lib/</code>, which then loads the Linux binary. The Linux binary finds all its deps inside the bundle and runs without ever touching <code>/System</code>. The launcher is a libsystem process; the firefox binary it execs is a glibc process — different processes, different libcs, sharing only the kernel. The cross-libc rule only forbids mixing libcs <em>in one address space</em>; spawning processes across libcs is fine.</p>
+
+<h3>The bridge: <code>pkgwrap --from-apt</code></h3>
+
+<p>TuxSTEP doesn't speak <code>apt</code> natively — there's no glibc, no dpkg, no apt machinery in <code>/System</code>. But <code>pkgwrap</code> does, on the build host. Given any Debian, Ubuntu, or third-party apt repo and a package name, it pulls the package, resolves the full transitive dependency closure, computes the ELF dependency tree, and outputs a ready-to-use <code>.app</code> bundle for <code>/Local/Applications/</code>. Other input forms supported: raw <code>.deb</code>, AppImage, Flatpak, static binary tree.</p>
+
+<p><strong>This is what makes TuxSTEP's compatibility story real.</strong> Apple's libc would be incompatible with the millions of Linux apps that exist; without a bridge, "we run on the Linux kernel" wouldn't translate into a usable system for a developer who needs Firefox + Slack + VS Code on day one. <strong>You bring any apt package; TuxSTEP turns it into an <code>.app</code>.</strong> The entire Debian/Ubuntu ecosystem is available on demand without polluting <code>/System</code>.</p>
+
+<h3>Why this composes well with the rest of the architecture</h3>
+
+<ul>
+  <li><strong>No /System pollution.</strong> Bundle contents live under <code>/Local/Applications/&lt;name&gt;.app/Contents/Linux/</code>. Nothing in <code>/System</code> is touched, modified, or referenced. The libsystem userland stays pristine.</li>
+  <li><strong>No package manager wars.</strong> Each bundle ships its full dependency closure. Two apps with conflicting glibc versions work fine — they each have their own bundled glibc. Installing/removing a bundle is <code>mv</code> and <code>rm -rf</code>.</li>
+  <li><strong>Drag-and-drop install.</strong> Bundles install via the same drag-and-drop pattern as native Cocoa-style apps: drag <code>Firefox.app</code> to <code>/Local/Applications/</code>. Remove via drag to trash. No installer scripts, no postinstall hooks.</li>
+  <li><strong>The radical architecture stays radical.</strong> The "/System is libsystem only" principle isn't compromised. Foreign code lives in foreign bundles, sealed and contained. macOS uses the same mental model for its <code>.app</code> bundles with embedded frameworks; TuxSTEP applies it to the Linux app ecosystem.</li>
+</ul>
+
+<p><strong>Post-v0.1 deliverable.</strong> Phase 6, alongside <code>newfs</code>, <code>bless</code>, and the auto-bless daemon. Repository: <code>tuxstep/pkgwrap</code>.</p>
 
 <h2 id="demo">v0.1 demo</h2>
 
