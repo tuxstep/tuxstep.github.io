@@ -153,30 +153,6 @@ details > div.detail-body { padding: 4px 14px 8px; }
 
 <p>TuxSTEP's deployment model is classic-Mac: <strong><code>/System</code> is the OS. Drag it to a volume, the volume becomes bootable.</strong></p>
 
-<p>An <strong>auto-bless daemon</strong> (post-v0.1, launchd-managed) watches mounted volumes for <code>/System/Library/Boot/kernel.efi</code> being written. When detected, it silently performs whatever partition surgery is needed to make the volume bootable:</p>
-
-<ul>
-  <li>If the volume already has an ESP, just updates the bootloader config inside it. Non-destructive, no partition table changes.</li>
-  <li>If the volume has no ESP but has free space at the start, reorganizes the partition table to declare an ESP region and installs the GRUB chainloader. Non-destructive of data.</li>
-  <li>If the volume needs ext4 shrinking to make room, runs <code>resize2fs</code> on the unmounted partition. Non-destructive of data; takes seconds on near-empty disks.</li>
-  <li>If the volume is 100% full and can't be shrunk, logs a notice and stops. The user's data is preserved; the disk just doesn't auto-bless.</li>
-</ul>
-
-<p>Two user-explicit commands accompany the daemon:</p>
-
-<ul>
-  <li><code>newfs &lt;disk&gt;</code> — convenience tool to format a disk for TuxSTEP (creates the layout: 5 MB hidden ESP + ext4, pre-installs the chainloader). Destructive of any existing data on the disk, like any format command.</li>
-  <li><code>bless &lt;volume&gt;</code> — same logic as the auto-bless daemon, but invoked manually for users who want explicit control.</li>
-</ul>
-
-<p>The user-visible workflow is just:</p>
-
-<pre><code>$ cp -aR /System /Volumes/NewDisk/    # this is the only command the user ever needs
-$                                     # disk is now bootable
-</code></pre>
-
-<p>No format step required (auto-bless handles partition surgery on the fly). No bless command required (auto-bless does it). Like classic Mac: drag the System Folder, the disk is ready. The same workflow applies on i386, amd64, and arm64 — bless detects the firmware mode and adapts (UEFI gets a hidden ESP; BIOS gets MBR + BIOS-boot region).</p>
-
 <h2 id="components">Component map</h2>
 
 <p>Every line in the v0.1 ISO traces back to one of four sources.</p>
