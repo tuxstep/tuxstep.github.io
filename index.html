@@ -111,12 +111,6 @@ details > div.detail-body { padding: 4px 14px 8px; }
 +-------------------------------------------------------------+
 </code></pre>
 
-<p>Every userspace binary in TuxSTEP is ELF and links against <code>/System/Library/Libraries/libSystem.so</code> — no exceptions. Every process makes Linux syscalls (translated by libsystem from BSD/Mach syscall conventions to Linux numbers). There is no second runtime, no parallel libc, no chroot, no namespace switching.</p>
-
-<div class="ok">
-<strong>The format question.</strong> Apple's userland source code can be compiled to either Mach-O or ELF. Mach-O is what macOS runs because XNU loads Mach-O. We're on Linux, so we compile the same source to ELF. The API surface, behavior, and developer experience are identical; the on-disk file format follows the kernel.
-</div>
-
 <h2 id="filesystem">Filesystem layout</h2>
 
 <p>Four real directories at root. No symlinks. Everything system-internal lives under <code>/System/Library/</code>. More pure than NeXTSTEP itself was.</p>
