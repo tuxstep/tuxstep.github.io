@@ -41,6 +41,30 @@ details[open] > summary::before { transform: rotate(90deg); }
 details > summary:hover { background: #eef0f2; }
 details[open] > summary { border-bottom: 1px solid #e1e4e8; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
 details > div.detail-body { padding: 4px 14px 8px; }
+
+.fs-tree { background: #f8f9fa; border: 1px solid #e1e4e8; line-height: 1.55; color: #1f2937; }
+.fs-tree .t   { color: #94a3b8; }
+.fs-tree .sys { color: #1e3a8a; font-weight: 600; }
+.fs-tree .net { color: #14532d; font-weight: 600; }
+.fs-tree .loc { color: #78350f; font-weight: 600; }
+.fs-tree .vol { color: #475569; font-weight: 600; }
+.fs-tree .d   { color: #334155; font-weight: 500; }
+.fs-tree .n   { color: #6b7280; font-style: italic; }
+
+.id-table { border-collapse: separate; border-spacing: 0; width: 100%; margin: 1em 0; background: #fff; border: 1px solid #e1e4e8; border-radius: 6px; overflow: hidden; }
+.id-table th, .id-table td { padding: 12px 14px; text-align: left; vertical-align: top; border: none; border-bottom: 1px solid #eef0f2; }
+.id-table tr:last-child td { border-bottom: none; }
+.id-table th { background: #f8f9fa; font-size: 0.78em; font-weight: 600; color: #555; text-transform: uppercase; letter-spacing: 0.05em; }
+.id-table td:first-child { font-weight: 600; color: #1f2937; width: 28%; border-left: 4px solid transparent; }
+.id-table tr.row-k td:first-child { border-left-color: #374151; }
+.id-table tr.row-l td:first-child { border-left-color: #c2410c; }
+.id-table tr.row-i td:first-child { border-left-color: #be185d; }
+.id-table tr.row-c td:first-child { border-left-color: #15803d; }
+.id-table tr.row-o td:first-child { border-left-color: #b45309; }
+.id-table tr.row-f td:first-child { border-left-color: #b45309; }
+.id-table tr.row-g td:first-child { border-left-color: #6d28d9; }
+.id-table tr.row-w td:first-child { border-left-color: #1d4ed8; }
+.id-table tr.row-p td:first-child { border-left-color: #0f766e; }
 </style>
 </head>
 <body>
@@ -51,11 +75,72 @@ details > div.detail-body { padding: 4px 14px 8px; }
 
 <h1>TuxSTEP — design document <small class="muted">v3.3</small></h1>
 
-<p>A modern NeXT-inspired operating system. Linux kernel underneath, <strong>a Darwin userland on top</strong>: Apple's libsystem as the system libc, BSD coreutils, and GNUstep frameworks (via Gershwin) for Cocoa-style applications.</p>
+<p>A desktop appliance designed top-to-bottom as a single cohesive product.</p>
 
-<p><strong>For macOS applications</strong>, TuxSTEP makes porting easier than any other solution — Apple's libsystem ships the BSD APIs (<code>kqueue</code>, <code>kevent</code>, <code>mach_absolute_time</code>, FSEvents) that glibc lacks, Apple's headers install at <code>/System/Library/Headers/</code>, and GNUstep provides source-compatible Cocoa frameworks.</p>
+<div style="background: #f8f9fa; border: 1px solid #e1e4e8; border-radius: 6px; padding: 18px; margin: 1em 0; overflow-x: auto;">
+<svg viewBox="0 0 720 484" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TuxSTEP architecture stack" style="width: 100%; max-width: 720px; height: auto; display: block; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, sans-serif;">
 
-<p><strong>For existing Linux apps</strong>, <code>pkgwrap</code> turns any apt package into a self-contained <code>.app</code> bundle deployable to <code>/Local/Applications/</code>, <code>/Network/Applications/</code>, or <code>~/Applications/</code> — Linux ecosystem available on demand, none of it polluting <code>/System</code>.</p>
+  <!-- Layer 1: Apps (native) + Linux compat -->
+  <g>
+    <!-- Native: Workspace, LoginWindow, Cocoa apps -->
+    <rect x="0" y="0" width="540" height="80" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5" rx="6"/>
+    <line x1="180" y1="10" x2="180" y2="70" stroke="#1d4ed8" stroke-width="1" stroke-dasharray="3,3"/>
+    <line x1="360" y1="10" x2="360" y2="70" stroke="#1d4ed8" stroke-width="1" stroke-dasharray="3,3"/>
+    <text x="90" y="36" text-anchor="middle" font-size="13" font-weight="600" fill="#1e3a8a">Workspace.app</text>
+    <text x="90" y="56" text-anchor="middle" font-size="11" fill="#475569">file manager / shell</text>
+    <text x="270" y="36" text-anchor="middle" font-size="13" font-weight="600" fill="#1e3a8a">LoginWindow.app</text>
+    <text x="270" y="56" text-anchor="middle" font-size="11" fill="#475569">login chain</text>
+    <text x="450" y="36" text-anchor="middle" font-size="13" font-weight="600" fill="#1e3a8a">Cocoa apps</text>
+    <text x="450" y="56" text-anchor="middle" font-size="11" fill="#475569">.app bundles</text>
+
+    <!-- Compat: Linux apps via pkgwrap -->
+    <rect x="548" y="0" width="172" height="80" fill="#ccfbf1" stroke="#0f766e" stroke-width="1.5" rx="6"/>
+    <text x="634" y="36" text-anchor="middle" font-size="13" font-weight="600" fill="#134e4a">Linux apps</text>
+    <text x="634" y="56" text-anchor="middle" font-size="11" fill="#475569">.app bundles (pkgwrap)</text>
+  </g>
+
+  <!-- Layer 2: AppKit / Display backend -->
+  <g transform="translate(0, 84)">
+    <rect x="0" y="0" width="720" height="80" fill="#ede9fe" stroke="#6d28d9" stroke-width="1.5" rx="6"/>
+    <line x1="360" y1="10" x2="360" y2="70" stroke="#6d28d9" stroke-width="1" stroke-dasharray="3,3"/>
+    <text x="180" y="34" text-anchor="middle" font-size="14" font-weight="600" fill="#4c1d95">AppKit (libs-gui)</text>
+    <text x="180" y="54" text-anchor="middle" font-size="11" fill="#475569">windows, controls, events</text>
+    <text x="540" y="34" text-anchor="middle" font-size="14" font-weight="600" fill="#4c1d95">Display backend (libs-back)</text>
+    <text x="540" y="54" text-anchor="middle" font-size="11" fill="#475569">Quartz: libs-opal, libs-quartzcore</text>
+  </g>
+
+  <!-- Layer 3: CLI tools -->
+  <g transform="translate(0, 168)">
+    <rect x="0" y="0" width="720" height="60" fill="#dcfce7" stroke="#15803d" stroke-width="1.5" rx="6"/>
+    <text x="360" y="28" text-anchor="middle" font-size="14" font-weight="600" fill="#14532d">Apple BSD coreutils</text>
+    <text x="360" y="47" text-anchor="middle" font-size="11" fill="#475569" font-family="ui-monospace, SF Mono, Menlo, monospace">/System/Library/Tools/</text>
+  </g>
+
+  <!-- Layer 4: Foundation / CoreFoundation -->
+  <g transform="translate(0, 232)">
+    <rect x="0" y="0" width="720" height="80" fill="#fef3c7" stroke="#b45309" stroke-width="1.5" rx="6"/>
+    <line x1="360" y1="10" x2="360" y2="50" stroke="#b45309" stroke-width="1" stroke-dasharray="3,3"/>
+    <text x="180" y="32" text-anchor="middle" font-size="14" font-weight="600" fill="#78350f">Foundation (libs-base)</text>
+    <text x="540" y="32" text-anchor="middle" font-size="14" font-weight="600" fill="#78350f">CoreFoundation (libs-corebase)</text>
+    <text x="360" y="62" text-anchor="middle" font-size="13" fill="#78350f">libdispatch  &#8226;  libobjc2  &#8226;  tools-make</text>
+  </g>
+
+  <!-- Layer 5: libsystem -->
+  <g transform="translate(0, 316)">
+    <rect x="0" y="0" width="720" height="70" fill="#fed7aa" stroke="#c2410c" stroke-width="1.5" rx="6"/>
+    <text x="360" y="30" text-anchor="middle" font-size="14" font-weight="600" fill="#7c2d12">Apple libsystem (libc, pthread, platform, malloc)</text>
+    <text x="360" y="52" text-anchor="middle" font-size="12" fill="#475569" font-family="ui-monospace, SF Mono, Menlo, monospace">/System/Library/Libraries/libSystem.so</text>
+  </g>
+
+  <!-- Layer 6: Linux kernel -->
+  <g transform="translate(0, 390)">
+    <rect x="0" y="0" width="720" height="70" fill="#e5e7eb" stroke="#374151" stroke-width="1.5" rx="6"/>
+    <text x="360" y="30" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">Linux kernel + drivers</text>
+    <text x="360" y="52" text-anchor="middle" font-size="12" fill="#475569">KMS, devtmpfs, framebuffer console</text>
+  </g>
+
+</svg>
+</div>
 
 <p><strong>The filesystem follows NeXT's four-domain model.</strong> Cocoa APIs walk the domains automatically in this order:</p>
 
@@ -110,107 +195,56 @@ details > div.detail-body { padding: 4px 14px 8px; }
 </svg>
 </div>
 
-<p>Home directories live under <code>/Local/Users/&lt;name&gt;</code> (local accounts) or <code>/Network/Users/&lt;name&gt;</code> (NFS-mounted accounts that follow you across machines).</p>
+<h2 id="components">Components</h2>
 
-<h2 id="identity">Identity</h2>
+<p>Every component traces back to a single upstream source. The integration is the product.</p>
 
-<p>TuxSTEP is a Linux distribution where the userspace combines the XNU open-source userland with the GNUstep frameworks.</p>
-
-<table>
-<tr><th>Layer</th><th>Source</th></tr>
-<tr><td>Linux kernel + drivers + firmware</td><td><code>kernel.org</code> upstream Linux + linux-firmware</td></tr>
-<tr><td>System libc</td><td>Apple's <code>libsystem</code> (apple-oss-distributions/Libc + libplatform + libpthread + libmalloc + libclosure + libdispatch), ported to ELF</td></tr>
-<tr><td>Coreutils / shell</td><td>Apple's BSD-derived utilities (file_cmds, shell_cmds, system_cmds, network_cmds, text_cmds) + zsh, all libsystem-linked</td></tr>
-<tr><td>Objective-C runtime</td><td><code>libobjc2</code> (via Gershwin)</td></tr>
-<tr><td>Foundation / CoreFoundation</td><td><code>libs-base</code> + <code>libs-corebase</code> (GNUstep, via Gershwin), rebuilt against libsystem</td></tr>
-<tr><td>Filesystem layout</td><td>NeXT-style: <code>/System</code>, <code>/Network</code>, <code>/Local</code>, <code>/Volumes</code> at root.</td></tr>
+<table class="id-table">
+<tr><th>Component</th><th>Source</th></tr>
+<tr class="row-k"><td>Linux kernel + drivers + firmware</td><td><code>kernel.org</code> upstream Linux + linux-firmware</td></tr>
+<tr class="row-k"><td>Bootloader</td><td>GRUB upstream, forked as <code>tuxstep/grub</code> (silent boot, familiar boot keys, TuxSTEP-styled boot screen)</td></tr>
+<tr class="row-l"><td>System libc</td><td>Apple's <code>libsystem</code> (apple-oss-distributions/Libc + libplatform + libpthread + libmalloc + libclosure), ported to ELF as <code>libSystem.so</code></td></tr>
+<tr class="row-l"><td>Mach IPC</td><td><code>tuxstep/darlingserver</code> — userspace Mach port broker; <code>libsimple_darlingserver</code> ELF client</td></tr>
+<tr class="row-i"><td>Init / service supervisor</td><td>Apple's <code>launchd</code> (apple-oss-distributions/launchd), ported to libsystem; runs as PID 1</td></tr>
+<tr class="row-c"><td>Coreutils / shell</td><td>Apple's BSD-derived utilities (file_cmds, shell_cmds, system_cmds, network_cmds, text_cmds) + zsh, all libsystem-linked</td></tr>
+<tr class="row-c"><td>Compiler toolchain</td><td><code>llvm-project</code> — clang, lld, ar, ... cross-built against libsystem</td></tr>
+<tr class="row-f"><td>Grand Central Dispatch</td><td><code>swift-corelibs-libdispatch</code> (Swift's libdispatch port), built against libsystem</td></tr>
+<tr class="row-f"><td>Objective-C runtime</td><td><code>libobjc2</code> (via Gershwin)</td></tr>
+<tr class="row-f"><td>Build system</td><td><code>tools-make</code> / gnustep-make (via Gershwin)</td></tr>
+<tr class="row-f"><td>Foundation</td><td><code>libs-base</code> (GNUstep, via Gershwin), rebuilt against libsystem</td></tr>
+<tr class="row-f"><td>CoreFoundation</td><td><code>libs-corebase</code> (GNUstep, via Gershwin), rebuilt against libsystem</td></tr>
+<tr class="row-g"><td>AppKit</td><td><code>libs-gui</code> (GNUstep, via Gershwin) — windows, controls, events</td></tr>
+<tr class="row-g"><td>Quartz / Core Graphics</td><td><code>libs-opal</code> (GNUstep, via Gershwin)</td></tr>
+<tr class="row-g"><td>Display backend</td><td><code>libs-back</code> (GNUstep, via Gershwin)</td></tr>
+<tr class="row-g"><td>Core Animation</td><td><code>libs-quartzcore</code> (GNUstep, via Gershwin)</td></tr>
+<tr class="row-w"><td>Workspace + system apps</td><td>Gershwin — Eau, <code>LoginWindow.app</code>, <code>Workspace.app</code>, system apps</td></tr>
+<tr class="row-p"><td>Linux app bundling</td><td><code>pkgwrap</code> — turns any apt package into a self-contained <code>.app</code> bundle (compat layer)</td></tr>
 </table>
-
-<h2 id="architecture">Architecture</h2>
-
-<div style="background: #f8f9fa; border: 1px solid #e1e4e8; border-radius: 6px; padding: 18px; margin: 1em 0; overflow-x: auto;">
-<svg viewBox="0 0 720 484" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TuxSTEP architecture stack" style="width: 100%; max-width: 720px; height: auto; display: block; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, sans-serif;">
-
-  <!-- Layer 1: Apps -->
-  <g>
-    <rect x="0" y="0" width="720" height="80" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5" rx="6"/>
-    <line x1="240" y1="10" x2="240" y2="70" stroke="#1d4ed8" stroke-width="1" stroke-dasharray="3,3"/>
-    <line x1="480" y1="10" x2="480" y2="70" stroke="#1d4ed8" stroke-width="1" stroke-dasharray="3,3"/>
-    <text x="120" y="36" text-anchor="middle" font-size="14" font-weight="600" fill="#1e3a8a">Workspace.app</text>
-    <text x="120" y="56" text-anchor="middle" font-size="11" fill="#475569">file manager / shell</text>
-    <text x="360" y="36" text-anchor="middle" font-size="14" font-weight="600" fill="#1e3a8a">LoginWindow.app</text>
-    <text x="360" y="56" text-anchor="middle" font-size="11" fill="#475569">login chain</text>
-    <text x="600" y="36" text-anchor="middle" font-size="14" font-weight="600" fill="#1e3a8a">Cocoa apps</text>
-    <text x="600" y="56" text-anchor="middle" font-size="11" fill="#475569">.app bundles</text>
-  </g>
-
-  <!-- Layer 2: AppKit / Display backend -->
-  <g transform="translate(0, 84)">
-    <rect x="0" y="0" width="720" height="80" fill="#ede9fe" stroke="#6d28d9" stroke-width="1.5" rx="6"/>
-    <line x1="360" y1="10" x2="360" y2="70" stroke="#6d28d9" stroke-width="1" stroke-dasharray="3,3"/>
-    <text x="180" y="34" text-anchor="middle" font-size="14" font-weight="600" fill="#4c1d95">AppKit (libs-gui)</text>
-    <text x="180" y="54" text-anchor="middle" font-size="11" fill="#475569">windows, controls, events</text>
-    <text x="540" y="34" text-anchor="middle" font-size="14" font-weight="600" fill="#4c1d95">Display backend (libs-back)</text>
-    <text x="540" y="54" text-anchor="middle" font-size="11" fill="#475569">Quartz: libs-opal, libs-quartzcore</text>
-  </g>
-
-  <!-- Layer 3: CLI tools -->
-  <g transform="translate(0, 168)">
-    <rect x="0" y="0" width="720" height="60" fill="#dcfce7" stroke="#15803d" stroke-width="1.5" rx="6"/>
-    <text x="360" y="28" text-anchor="middle" font-size="14" font-weight="600" fill="#14532d">Apple BSD coreutils</text>
-    <text x="360" y="47" text-anchor="middle" font-size="11" fill="#475569" font-family="ui-monospace, SF Mono, Menlo, monospace">/System/Library/Tools/</text>
-  </g>
-
-  <!-- Layer 4: Foundation / CoreFoundation -->
-  <g transform="translate(0, 232)">
-    <rect x="0" y="0" width="720" height="80" fill="#fef3c7" stroke="#b45309" stroke-width="1.5" rx="6"/>
-    <line x1="360" y1="10" x2="360" y2="50" stroke="#b45309" stroke-width="1" stroke-dasharray="3,3"/>
-    <text x="180" y="32" text-anchor="middle" font-size="14" font-weight="600" fill="#78350f">Foundation (libs-base)</text>
-    <text x="540" y="32" text-anchor="middle" font-size="14" font-weight="600" fill="#78350f">CoreFoundation (libs-corebase)</text>
-    <text x="360" y="62" text-anchor="middle" font-size="13" fill="#78350f">libdispatch  &#8226;  libobjc2  &#8226;  tools-make</text>
-  </g>
-
-  <!-- Layer 5: libsystem -->
-  <g transform="translate(0, 316)">
-    <rect x="0" y="0" width="720" height="70" fill="#fed7aa" stroke="#c2410c" stroke-width="1.5" rx="6"/>
-    <text x="360" y="30" text-anchor="middle" font-size="14" font-weight="600" fill="#7c2d12">Apple libsystem (libc, pthread, platform, malloc)</text>
-    <text x="360" y="52" text-anchor="middle" font-size="12" fill="#475569" font-family="ui-monospace, SF Mono, Menlo, monospace">/System/Library/Libraries/libSystem.so</text>
-  </g>
-
-  <!-- Layer 6: Linux kernel -->
-  <g transform="translate(0, 390)">
-    <rect x="0" y="0" width="720" height="70" fill="#e5e7eb" stroke="#374151" stroke-width="1.5" rx="6"/>
-    <text x="360" y="30" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">Linux kernel + drivers</text>
-    <text x="360" y="52" text-anchor="middle" font-size="12" fill="#475569">KMS, devtmpfs, framebuffer console</text>
-  </g>
-
-</svg>
-</div>
 
 <h2 id="filesystem">Filesystem layout</h2>
 
-<pre><code>/                                       ISO root
-│
-├── System/                              the entire System
-│   └── Library/
-│       ├── Kernels/&lt;kver&gt;/              kernel image, initramfs
-│       ├── Firmware/                    firmware blobs
-│       ├── Modules/&lt;kver&gt;/              kernel modules (post-v0.1; empty in v0.1)
-│       ├── Libraries/                   libSystem.so, libobjc2.so, libdispatch.so,
-│       │                                libgnustep-base.so, libgnustep-corebase.so
-│       ├── Headers/                     Apple + GNUstep headers
-│       ├── Tools/                       Apple BSD coreutils, zsh, cc, ld, ar, ...
-│       ├── Makefiles/                   gnustep-make
-│       └── Private/                     system-internal Unix infrastructure
-│           ├── etc/                     passwd, hosts, fstab, ...
-│           ├── var/                     logs, state, spool
-│           ├── tmp/                     temp files (tmpfs at runtime)
-│           ├── dev/                     devtmpfs mount point
-│           └── sys/                     sysfs mount point (post-v0.1)
-│
-├── Network/                             site-wide / NFS-mounted (empty in v0.1)
-├── Local/                               per-machine sysadmin (empty in v0.1)
-└── Volumes/                             mounted external media
+<pre class="fs-tree"><code><span class="t">/</span>                                       <span class="n">ISO root</span>
+<span class="t">│</span>
+<span class="t">├──</span> <span class="sys">System/</span>                              <span class="n">the entire System</span>
+<span class="t">│   └──</span> <span class="d">Library/</span>
+<span class="t">│       ├──</span> <span class="d">Kernels/&lt;kver&gt;/</span>              <span class="n">kernel image, initramfs</span>
+<span class="t">│       ├──</span> <span class="d">Firmware/</span>                    <span class="n">firmware blobs</span>
+<span class="t">│       ├──</span> <span class="d">Modules/&lt;kver&gt;/</span>              <span class="n">kernel modules (post-v0.1; empty in v0.1)</span>
+<span class="t">│       ├──</span> <span class="d">Libraries/</span>                   <span class="n">libSystem.so, libobjc2.so, libdispatch.so,</span>
+<span class="t">│       │</span>                                <span class="n">libgnustep-base.so, libgnustep-corebase.so</span>
+<span class="t">│       ├──</span> <span class="d">Headers/</span>                     <span class="n">Apple + GNUstep headers</span>
+<span class="t">│       ├──</span> <span class="d">Tools/</span>                       <span class="n">Apple BSD coreutils, zsh, cc, ld, ar, ...</span>
+<span class="t">│       ├──</span> <span class="d">Makefiles/</span>                   <span class="n">gnustep-make</span>
+<span class="t">│       └──</span> <span class="d">Private/</span>                     <span class="n">system-internal Unix infrastructure</span>
+<span class="t">│           ├──</span> <span class="d">etc/</span>                     <span class="n">passwd, hosts, fstab, ...</span>
+<span class="t">│           ├──</span> <span class="d">var/</span>                     <span class="n">logs, state, spool</span>
+<span class="t">│           ├──</span> <span class="d">tmp/</span>                     <span class="n">temp files (tmpfs at runtime)</span>
+<span class="t">│           ├──</span> <span class="d">dev/</span>                     <span class="n">devtmpfs mount point</span>
+<span class="t">│           └──</span> <span class="d">sys/</span>                     <span class="n">sysfs mount point (post-v0.1)</span>
+<span class="t">│</span>
+<span class="t">├──</span> <span class="net">Network/</span>                             <span class="n">site-wide / NFS-backed (empty in v0.1)</span>
+<span class="t">├──</span> <span class="loc">Local/</span>                               <span class="n">per-machine sysadmin (empty in v0.1)</span>
+<span class="t">└──</span> <span class="vol">Volumes/</span>                             <span class="n">mounted external media</span>
 </code></pre>
 
 <p style="color:#888; font-size: 0.85em; margin-top:3em;">v3.3 — generated 2026-04-26. Architectural source of truth: <a href="https://github.com/tuxstep/tuxstep/blob/main/PLAN.md"><code>github.com/tuxstep/tuxstep/blob/main/PLAN.md</code></a>.</p>
