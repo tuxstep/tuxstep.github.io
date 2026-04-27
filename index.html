@@ -202,11 +202,11 @@ details > div.detail-body { padding: 4px 14px 8px; }
 <table class="id-table">
 <tr><th>Component</th><th>Source</th></tr>
 <tr class="row-k"><td>Linux kernel + drivers + firmware</td><td><code>kernel.org</code> upstream Linux + linux-firmware</td></tr>
-<tr class="row-k"><td>Bootloader</td><td>GRUB upstream, forked as <code>tuxstep/grub</code> (silent boot, familiar boot keys, TuxSTEP-styled boot screen)</td></tr>
-<tr class="row-l"><td>System libc</td><td>Apple's <code>libsystem</code> (apple-oss-distributions/Libc + libplatform + libpthread + libmalloc + libclosure), ported to ELF as <code>libSystem.so</code></td></tr>
-<tr class="row-l"><td>Mach IPC</td><td><code>tuxstep/darlingserver</code> — userspace Mach port broker; <code>libsimple_darlingserver</code> ELF client</td></tr>
+<tr class="row-k"><td>Bootloader</td><td>GRUB upstream, forked as <code>tuxstep/grub</code> (silent boot, familiar boot keys)</td></tr>
+<tr class="row-l"><td>System libc</td><td>Apple's <code>libsystem</code> (apple-oss-distributions/Libc + libplatform + libpthread + libmalloc + libclosure)</td></tr>
+<tr class="row-l"><td>Mach IPC</td><td><code>tuxstep/darlingserver</code> — userspace Mach port broker</td></tr>
 <tr class="row-i"><td>Init / service supervisor</td><td>Apple's <code>launchd</code> (apple-oss-distributions/launchd), ported to libsystem; runs as PID 1</td></tr>
-<tr class="row-c"><td>Coreutils / shell</td><td>Apple's BSD-derived utilities (file_cmds, shell_cmds, system_cmds, network_cmds, text_cmds) + zsh, all libsystem-linked</td></tr>
+<tr class="row-c"><td>Coreutils / shell</td><td>Apple's BSD-derived utilities (file_cmds, shell_cmds, system_cmds, network_cmds, text_cmds)</td></tr>
 <tr class="row-c"><td>Compiler toolchain</td><td><code>llvm-project</code> — clang, lld, ar, ... cross-built against libsystem</td></tr>
 <tr class="row-f"><td>Grand Central Dispatch</td><td><code>swift-corelibs-libdispatch</code> (Swift's libdispatch port), built against libsystem</td></tr>
 <tr class="row-f"><td>Objective-C runtime</td><td><code>libobjc2</code> (via Gershwin)</td></tr>
